@@ -17,8 +17,8 @@ export default async function handler(
   res: NextApiResponse<any>
 ) {
   const supabase = createClient(
-    'https://rrcfctexwghnswguaqcu.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyY2ZjdGV4d2dobnN3Z3VhcWN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE4ODU5NzAsImV4cCI6MjAzNzQ2MTk3MH0.VbLtQRkAr0HmB4OvVkfoet0VcRsBr9qDGDuILUFD9Ac'
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_ANON_KEY || ''
   );
   try {
     const { data, error } = await supabase

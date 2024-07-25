@@ -8,8 +8,8 @@ export default async function handler(
   res: NextApiResponse<any>
 ) {
   const supabase = createClient(
-    'https://rrcfctexwghnswguaqcu.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyY2ZjdGV4d2dobnN3Z3VhcWN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjE4ODU5NzAsImV4cCI6MjAzNzQ2MTk3MH0.VbLtQRkAr0HmB4OvVkfoet0VcRsBr9qDGDuILUFD9Ac'
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_ANON_KEY || ''
   );
 
   //const mes = '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭'
@@ -22,7 +22,6 @@ export default async function handler(
     .replaceAll(',', '')
     .split('\n');
 
-  const today = dayjs();
   const confirmType = parseWithLine[1].split(' ')[2];
   const cardNumber = parseWithLine[2].split(' ')[0];
   const user = parseWithLine[2].split(' ')[1].split('님')[0];

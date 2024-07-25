@@ -4,30 +4,66 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb-sub: 150, 150, 150;
+  --background-rgb: 255, 255, 255;
+  --background-rg-sub: 214, 219, 220;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --foreground-rgb-sub: 214, 219, 220;
+    --background-rgb: 0, 0, 0;
+    --background-rgb-sub: 10, 10, 10;
   }
 }
 
 body {
+  font-family: 'SF Pro KR';
+
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: rgb(var(--background-rgb));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.opposite {
+  color: rgb(var(--background-rgb));
+  background: rgb(var(--foreground-rgb));
+}
+
+.subText {
+  color: rgb(var(--foreground-rgb-sub));
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+@font-face {
+  font-family: 'SF Pro KR';
+  font-style: normal;
+  font-weight: bold;
+  src: url('/fonts/SFProKRDisplay_bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'SF Pro KR';
+  font-style: normal;
+  font-weight: medium;
+  src: url('/fonts/SFProKRDisplay_medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'SF Pro KR';
+  font-style: regular;
+  font-weight: bold;
+  src: url('/fonts/SFProKRDisplay_regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'SF Pro KR';
+  font-style: normal;
+  font-weight: semibold;
+  src: url('/fonts/SFProKRDisplay_semibold.woff2') format('woff2');
 }

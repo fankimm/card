@@ -19,10 +19,11 @@
 }
 
 body {
-  font-family: 'SF Pro KR';
+  /* font-family: 'SF Pro KR'; 주석처리 하니까 tailwind font-weight 적용된다 */
 
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
+  font-smooth: always;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;

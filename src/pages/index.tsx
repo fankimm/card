@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
+import { useRouter } from 'next/router';
 
 export default function Home() {
   const monthName = [
@@ -18,6 +19,7 @@ export default function Home() {
   ];
 
   const [total, setTotal] = useState<number | undefined>(undefined);
+  const router = useRouter();
   useEffect(() => {
     fetch('/api/hello2')
       .then((res) => res.json())
@@ -31,17 +33,20 @@ export default function Home() {
       <div className="flex gap-3 text-7xl font-bold mb-4">
         <div>{monthName[parseInt(dayjs().format('M')) - 1]}</div>
       </div>
-      {total ? (
-        <div>
-          <div className="subText text-2xl font-light">총 사용금액</div>
+
+      <div>
+        <div className="subText text-2xl font-light">총 사용금액</div>
+        {total ? (
           <div className="text-4xl font-semibold mb-4">{`₩${total?.toLocaleString(
             'ko-KR'
           )}`}</div>
-        </div>
-      ) : (
-        'LOADING...'
-      )}
-      <div className="button opposite">상세 내역보기</div>
+        ) : (
+          'LOADING...'
+        )}
+      </div>
+      <div className="button opposite" onClick={() => router.push('/detail')}>
+        상세 내역보기
+      </div>
     </div>
   );
 }

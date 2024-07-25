@@ -12,7 +12,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
-    --foreground-rgb-sub: 214, 219, 220;
+    --foreground-rgb-sub: 180, 180, 180;
     --background-rgb: 0, 0, 0;
     --background-rgb-sub: 10, 10, 10;
   }
@@ -26,6 +26,17 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+.button {
+  padding: 4px 8px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.button:hover {
+  scale: 1.05;
+  transition: all 0.4s;
 }
 
 .opposite {

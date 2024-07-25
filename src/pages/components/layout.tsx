@@ -1,4 +1,4 @@
-const Layout = (children: React.ReactNode) => {
+const Layout = (children: any) => {
   return <div className="SFProKR">{children}</div>;
 };
 

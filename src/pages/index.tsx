@@ -20,18 +20,23 @@ export default function Home() {
 
   const [total, setTotal] = useState<number | undefined>(undefined);
   const router = useRouter();
-  useEffect(() => {
+  const handleSearch = () => {
     fetch('/api/hello2')
       .then((res) => res.json())
       .then((data) => {
         setTotal(data.data);
       });
+  };
+  useEffect(() => {
+    handleSearch();
   }, []);
 
   return (
     <div className="flex flex-col justify-center items-center h-screen text-center">
       <div className="flex gap-3 text-7xl font-bold mb-4">
-        <div>{monthName[parseInt(dayjs().format('M')) - 1]}</div>
+        <div className="hover:cursor-pointer text-red" onClick={handleSearch}>
+          {monthName[parseInt(dayjs().format('M')) - 1]}
+        </div>
       </div>
 
       <div>

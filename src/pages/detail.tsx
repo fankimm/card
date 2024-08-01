@@ -30,30 +30,35 @@ const Detail = () => {
           홈으로
         </div>
       </div>
-      {data?.map((item) => {
-        return (
-          <div className="flex justify-between p-2" key={item.id}>
-            <div className="flex">
-              <div>•</div>
-              <div>
-                <div className="text-lg">{item.place}</div>
-                <div className="flex gap-2 subText">
-                  <div>{dayjs(item.date).format('YY.M.DD')}</div>
+      <div className="flex justify-center">
+        <div className="w-full max-w-5xl">
+          {data?.map((item) => {
+            return (
+              <div className="flex justify-between p-2" key={item.id}>
+                <div className="flex">
+                  <div>•</div>
                   <div>
-                    {dayjs(item.date + item.time, 'YYYY-MM-DDHH:mm:ss').format(
-                      'HH:mm'
-                    )}
+                    <div className="text-lg">{item.place}</div>
+                    <div className="flex gap-2 subText">
+                      <div>{dayjs(item.date).format('YY.M.DD')}</div>
+                      <div>
+                        {dayjs(
+                          item.date + item.time,
+                          'YYYY-MM-DDHH:mm:ss'
+                        ).format('HH:mm')}
+                      </div>
+                      <div>{item.confirmType}</div>
+                    </div>
                   </div>
-                  <div>{item.confirmType}</div>
+                </div>
+                <div>
+                  <div>{`${item.fee.toLocaleString('ko-kr')}원`}</div>
                 </div>
               </div>
-            </div>
-            <div>
-              <div>{`${item.fee.toLocaleString('ko-kr')}원`}</div>
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

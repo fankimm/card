@@ -11,7 +11,8 @@ export default async function handler(
     process.env.SUPABASE_ANON_KEY || ''
   );
   try {
-    const { data, error } = await supabase.from('card-usages').select();
+    const { data, error } = await supabase.from('card-usages').gte('date', dayjs().startOf('month').format('YYYY-MM-DD'))
+      .lte('date', dayjs().endOf('month').format('YYYY-MM-DD')).select();
     if (data) {
       res.status(200).json(data);
     } else {

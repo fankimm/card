@@ -1,6 +1,7 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import dayjs from 'dayjs';
 
 export default async function handler(
   req: NextApiRequest,
@@ -11,7 +12,11 @@ export default async function handler(
     process.env.SUPABASE_ANON_KEY || ''
   );
   try {
-    const { data, error } = await supabase.from('card-usages').gte('date', dayjs().startOf('month').format('YYYY-MM-DD')).lte('date', dayjs().endOf('month').format('YYYY-MM-DD')).select();
+    const { data, error } = await supabase
+      .from('card-usages')
+      .select()
+      .gte('date', dayjs().startOf('month').format('YYYY-MM-DD'))
+      .lte('date', dayjs().endOf('month').format('YYYY-MM-DD'));
     if (data) {
       res.status(200).json(data);
     } else {

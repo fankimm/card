@@ -36,7 +36,7 @@ export default function Home() {
 
       <div>
         <div className="subText text-2xl font-light">총 사용금액</div>
-        {total ? (
+        {total !== undefined ? (
           <div className="text-4xl font-semibold mb-4">{`₩${total?.toLocaleString(
             'ko-KR'
           )}`}</div>

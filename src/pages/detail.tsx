@@ -13,12 +13,14 @@ const Detail = () => {
       .then((data) => {
         setData(data);
       });
-  });
+  }, []);
   return (
     <div className="p-4">
       <div className="sticky top-0 p-2 pb-4 flex justify-between items-center backdrop-blur-lg">
         <div>
-          <div className="text-2xl font-extrabold ">7월 이용내역 상세</div>
+          <div className="text-2xl font-extrabold ">{`${dayjs().format(
+            'M'
+          )}월 이용내역 상세`}</div>
           <div className="subText">김지환</div>
         </div>
         <div

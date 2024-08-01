@@ -15,8 +15,8 @@ const Detail = () => {
       });
   }, []);
   return (
-    <div className="p-4">
-      <div className="sticky top-0 p-2 pb-4 flex justify-between items-center backdrop-blur-lg">
+    <div>
+      <div className="sticky top-0 p-4 flex justify-between items-center backdrop-blur-lg">
         <div>
           <div className="text-2xl font-extrabold ">{`${dayjs().format(
             'M'

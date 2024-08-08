@@ -1,6 +1,6 @@
 {
   "name": "MYCOMPANY 사용내역",
-  "short_name": "CARD",
+  "short_name": "법카사용내역",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",

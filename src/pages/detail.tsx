@@ -31,7 +31,7 @@ const Detail = () => {
         </div>
       </div>
       <div className="flex justify-center">
-        <div className="w-full max-w-5xl">
+        <div className="w-full max-w-5xl p-2">
           {data?.map((item) => {
             return (
               <div className="flex justify-between p-2" key={item.id}>
@@ -39,7 +39,7 @@ const Detail = () => {
                   <div>•</div>
                   <div>
                     <div className="text-lg">{item.place}</div>
-                    <div className="flex gap-2 subText">
+                    <div className="flex gap-2 subText items-center">
                       <div>{dayjs(item.date).format('YY.M.DD')}</div>
                       <div>
                         {dayjs(
@@ -47,7 +47,13 @@ const Detail = () => {
                           'YYYY-MM-DDHH:mm:ss'
                         ).format('HH:mm')}
                       </div>
-                      <div>{item.confirmType}</div>
+                      <div
+                        className={`rounded-lg ${
+                          item.confirmType === '승인' ? 'opposite' : 'redBox'
+                        } text-xs px-1`}
+                      >
+                        {item.confirmType}
+                      </div>
                     </div>
                   </div>
                 </div>

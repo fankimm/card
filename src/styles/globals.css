@@ -45,6 +45,11 @@ body {
   background: rgb(var(--foreground-rgb));
 }
 
+.redBox {
+  color: white;
+  background: red;
+}
+
 .subText {
   color: rgb(var(--foreground-rgb-sub));
 }

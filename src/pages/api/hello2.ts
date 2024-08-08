@@ -26,7 +26,8 @@ export default async function handler(
       .select('fee, date')
       .gte('date', dayjs().startOf('month').format('YYYY-MM-DD'))
       .lte('date', dayjs().endOf('month').format('YYYY-MM-DD'))
-      .not('fee', 'is', null);
+      .not('fee', 'is', null)
+      .eq('confirmType', '승인');
     if (data) {
       res.status(200).json({
         message: '성공',

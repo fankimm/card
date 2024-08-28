@@ -6,7 +6,7 @@ const Detail = () => {
   const [data, setData] = useState<any[] | undefined>(undefined);
   const router = useRouter();
   useEffect(() => {
-    fetch(`/api/usages-list?name=${window.localStorage.getItem('loginInfo')}`)
+    fetch(`/api/usages-list?name=${window?.localStorage.getItem('loginInfo')}`)
       .then((res) => {
         return res.json();
       })
@@ -22,7 +22,7 @@ const Detail = () => {
             'M'
           )}월 이용내역 상세`}</div>
           <div className="subText">
-            {window.localStorage.getItem('loginInfo')}
+            {window?.localStorage.getItem('loginInfo')}
           </div>
         </div>
         <div

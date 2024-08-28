@@ -6,13 +6,15 @@ const Detail = () => {
   const [data, setData] = useState<any[] | undefined>(undefined);
   const router = useRouter();
   useEffect(() => {
-    fetch(`/api/usages-list?name=${window?.localStorage.getItem('loginInfo')}`)
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        setData(data);
-      });
+    if (window) {
+      fetch(`/api/usages-list?name=${window.localStorage.getItem('loginInfo')}`)
+        .then((res) => {
+          return res.json();
+        })
+        .then((data) => {
+          setData(data);
+        });
+    }
   }, []);
   return (
     <div>

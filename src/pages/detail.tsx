@@ -6,7 +6,7 @@ const Detail = () => {
   const [data, setData] = useState<any[] | undefined>(undefined);
   const router = useRouter();
   useEffect(() => {
-    if (window) {
+    if (typeof window !== 'undefined') {
       fetch(`/api/usages-list?name=${window.localStorage.getItem('loginInfo')}`)
         .then((res) => {
           return res.json();

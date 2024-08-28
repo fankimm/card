@@ -24,7 +24,8 @@ const Detail = () => {
             'M'
           )}월 이용내역 상세`}</div>
           <div className="subText">
-            {window?.localStorage.getItem('loginInfo')}
+            {typeof window !== 'undefined' &&
+              window?.localStorage.getItem('loginInfo')}
           </div>
         </div>
         <div

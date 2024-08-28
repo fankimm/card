@@ -32,6 +32,12 @@ export default async function handler(
   console.log(
     dayjs(`2024/${date}`, 'YYYY/MM/DD HH:mm:ss').format('YYYY-MM-DD')
   );
+
+  if (time > '15:00:00') {
+    res.status(200).json({ message: '점심시간이 아닙니다.' });
+    return;
+  }
+
   const param = {
     confirmType,
     cardNumber,

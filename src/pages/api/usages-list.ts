@@ -15,6 +15,7 @@ export default async function handler(
     const { data, error } = await supabase
       .from('card-usages')
       .select()
+      .eq('user', req.query.name as string)
       .gte('date', dayjs().startOf('month').format('YYYY-MM-DD'))
       .lte('date', dayjs().endOf('month').format('YYYY-MM-DD'));
     if (data) {

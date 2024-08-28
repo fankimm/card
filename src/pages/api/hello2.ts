@@ -20,6 +20,7 @@ export default async function handler(
     process.env.SUPABASE_URL || '',
     process.env.SUPABASE_ANON_KEY || ''
   );
+  console.log(req.query.name);
   try {
     const { data, error } = await supabase
       .from('card-usages')
@@ -27,8 +28,10 @@ export default async function handler(
       .gte('date', dayjs().startOf('month').format('YYYY-MM-DD'))
       .lte('date', dayjs().endOf('month').format('YYYY-MM-DD'))
       .not('fee', 'is', null)
-      .eq('confirmType', '승인');
+      .eq('confirmType', '승인')
+      .eq('user', req.query.name);
     if (data) {
+      console.log('data', data);
       res.status(200).json({
         message: '성공',
         data: data.reduce((a, b) => a + b.fee, 0),

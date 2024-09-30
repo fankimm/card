@@ -3,8 +3,8 @@
   "short_name": "법카사용내역",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#FFFFFF",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "256.png",

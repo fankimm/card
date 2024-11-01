@@ -5,8 +5,11 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 
 dayjs.locale('ko');
-
-export default function App({ Component, pageProps }: AppProps) {
+interface AppPropsWithDate extends AppProps {
+  date: string;
+  setDate: (date: string) => void;
+}
+export default function App({ Component, pageProps }: AppPropsWithDate) {
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   return <Component date={date} setDate={setDate} {...pageProps} />;
 }

@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
-const Detail = ({ date, setDate }) => {
+const Detail = ({ date, setDate }: { date: string; setDate: string }) => {
   const [data, setData] = useState<any[] | undefined>(undefined);
   const router = useRouter();
 

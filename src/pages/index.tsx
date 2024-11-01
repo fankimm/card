@@ -2,8 +2,11 @@ import { useContext, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import Login from '@/components/login';
-
-export default function Home({ date, setDate }) {
+interface HomeProps {
+  date: string;
+  setDate: Function;
+}
+export default function Home({ date, setDate }: HomeProps) {
   const monthName = [
     'JANUARY',
     'FEBURARY',

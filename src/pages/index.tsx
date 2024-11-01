@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import Login from '@/components/login';
 
-export default function Home() {
+export default function Home({ date, setDate }) {
   const monthName = [
     'JANUARY',
     'FEBURARY',
@@ -18,13 +18,17 @@ export default function Home() {
     'NOVERMBER',
     'DECEMBER',
   ];
-
   const [total, setTotal] = useState<number | undefined>(undefined);
   const [hasSession, setHasSession] = useState(false);
   const router = useRouter();
+
   const handleSearch = () => {
-    console.log(window.localStorage.getItem('loginInfo'));
-    fetch(`/api/hello2?name=${window.localStorage.getItem('loginInfo')}`)
+    console.log('date', date);
+    fetch(
+      `/api/hello2?name=${window.localStorage.getItem(
+        'loginInfo'
+      )}&date=${date}`
+    )
       .then((res) => res.json())
       .then((data) => {
         setTotal(data.data);
@@ -37,13 +41,37 @@ export default function Home() {
     } else {
       setHasSession(false);
     }
-  }, [router]);
+  }, [router, date]);
   if (hasSession) {
     return (
       <div className="h-screen">
-        <div className="p-8 flex justify-end">
+        <div className="p-8 flex justify-end gap-4">
           <div
             className="button opposite w-20 text-center"
+            onClick={() => {
+              setDate(dayjs().format('YYYY-MM-DD'));
+            }}
+          >
+            오늘
+          </div>
+          <div
+            className="button opposite w-20 text-center"
+            onClick={() => {
+              setDate(dayjs(date).subtract(1, 'month').format('YYYY-MM-DD'));
+            }}
+          >
+            이전달
+          </div>
+          <div
+            className="button opposite w-20 text-center"
+            onClick={() => {
+              setDate(dayjs(date).add(1, 'month').format('YYYY-MM-DD'));
+            }}
+          >
+            다음달
+          </div>
+          <div
+            className="button opposite w-24 text-center"
             onClick={() => {
               window.localStorage.removeItem('loginInfo');
               router.push('/');
@@ -53,15 +81,14 @@ export default function Home() {
           </div>
         </div>
         <div className="flex flex-col justify-center items-center text-center">
-          <div className="flex gap-3 text-7xl font-bold mb-4">
+          <div className="flex gap-3 text-[13vw] font-bold mb-4">
             <div
               className="hover:cursor-pointer text-red"
               onClick={handleSearch}
             >
-              {monthName[parseInt(dayjs().format('M')) - 1]}
+              {monthName[parseInt(dayjs(date).format('M')) - 1]}
             </div>
           </div>
-
           <div>
             <div className="subText text-2xl font-light">총 사용금액</div>
             {total !== undefined ? (

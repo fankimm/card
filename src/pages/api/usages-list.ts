@@ -11,13 +11,14 @@ export default async function handler(
     process.env.SUPABASE_URL || '',
     process.env.SUPABASE_ANON_KEY || ''
   );
+  const date = req.query.date as string;
   try {
     const { data, error } = await supabase
       .from('card-usages')
       .select()
       .eq('user', req.query.name as string)
-      .gte('date', dayjs().startOf('month').format('YYYY-MM-DD'))
-      .lte('date', dayjs().endOf('month').format('YYYY-MM-DD'));
+      .gte('date', dayjs(date).startOf('month').format('YYYY-MM-DD'))
+      .lte('date', dayjs(date).endOf('month').format('YYYY-MM-DD'));
     if (data) {
       res.status(200).json(data);
     } else {

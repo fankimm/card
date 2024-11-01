@@ -2,12 +2,17 @@ import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
-const Detail = () => {
+const Detail = ({ date, setDate }) => {
   const [data, setData] = useState<any[] | undefined>(undefined);
   const router = useRouter();
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      fetch(`/api/usages-list?name=${window.localStorage.getItem('loginInfo')}`)
+      fetch(
+        `/api/usages-list?name=${window.localStorage.getItem(
+          'loginInfo'
+        )}&date=${date || dayjs().format('YYYY-MM-DD')}`
+      )
         .then((res) => {
           return res.json();
         })
@@ -20,7 +25,7 @@ const Detail = () => {
     <div>
       <div className="sticky top-0 p-4 flex justify-between items-center backdrop-blur-lg">
         <div>
-          <div className="text-2xl font-extrabold ">{`${dayjs().format(
+          <div className="text-2xl font-extrabold ">{`${dayjs(date).format(
             'M'
           )}월 이용내역 상세`}</div>
           <div className="subText">

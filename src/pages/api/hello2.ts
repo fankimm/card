@@ -20,13 +20,14 @@ export default async function handler(
     process.env.SUPABASE_URL || '',
     process.env.SUPABASE_ANON_KEY || ''
   );
-  console.log(req.query.name);
+  const date = req.query.date as string;
+  console.log('date', date);
   try {
     const { data, error } = await supabase
       .from('card-usages')
       .select('fee, date')
-      .gte('date', dayjs().startOf('month').format('YYYY-MM-DD'))
-      .lte('date', dayjs().endOf('month').format('YYYY-MM-DD'))
+      .gte('date', dayjs(date).startOf('month').format('YYYY-MM-DD'))
+      .lte('date', dayjs(date).endOf('month').format('YYYY-MM-DD'))
       .not('fee', 'is', null)
       .eq('confirmType', '승인')
       .eq('user', req.query.name);

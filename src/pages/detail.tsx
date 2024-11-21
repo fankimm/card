@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 
 const Detail = ({ date, setDate }: { date: string; setDate: string }) => {
   const [data, setData] = useState<any[] | undefined>(undefined);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      setLoading(true);
       fetch(
         `/api/usages-list?name=${window.localStorage.getItem(
           'loginInfo'
@@ -18,6 +20,9 @@ const Detail = ({ date, setDate }: { date: string; setDate: string }) => {
         })
         .then((data) => {
           setData(data);
+        })
+        .finally(() => {
+          setLoading(false);
         });
     }
   }, []);
@@ -42,6 +47,7 @@ const Detail = ({ date, setDate }: { date: string; setDate: string }) => {
       </div>
       <div className="flex justify-center">
         <div className="w-full max-w-5xl p-2">
+          {loading && <div>Loading...</div>}
           {data?.map((item) => {
             return (
               <div className="flex justify-between p-2" key={item.id}>

@@ -23,10 +23,12 @@ export default function Home({ date, setDate }: HomeProps) {
   ];
   const [total, setTotal] = useState<number | undefined>(undefined);
   const [hasSession, setHasSession] = useState(false);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSearch = () => {
     console.log('date', date);
+    setLoading(true);
     fetch(
       `/api/hello2?name=${window.localStorage.getItem(
         'loginInfo'
@@ -35,6 +37,9 @@ export default function Home({ date, setDate }: HomeProps) {
       .then((res) => res.json())
       .then((data) => {
         setTotal(data.data);
+      })
+      .finally(() => {
+        setLoading(false);
       });
   };
   useEffect(() => {
@@ -65,14 +70,19 @@ export default function Home({ date, setDate }: HomeProps) {
           >
             이전달
           </div>
-          <div
-            className="button opposite w-20 text-center"
+          <button
+            className={`${
+              dayjs(date).isSame(dayjs(), 'month')
+                ? 'disabledButton'
+                : 'button opposite'
+            }  w-20 text-center`}
+            disabled={dayjs(date).isSame(dayjs(), 'month')}
             onClick={() => {
               setDate(dayjs(date).add(1, 'month').format('YYYY-MM-DD'));
             }}
           >
             다음달
-          </div>
+          </button>
           <div
             className="button opposite w-24 text-center"
             onClick={() => {
@@ -94,12 +104,12 @@ export default function Home({ date, setDate }: HomeProps) {
           </div>
           <div>
             <div className="subText text-2xl font-light">총 사용금액</div>
-            {total !== undefined ? (
+            {loading ? (
+              'LOADING...'
+            ) : (
               <div className="text-4xl font-semibold mb-4">{`₩${total?.toLocaleString(
                 'ko-KR'
               )}`}</div>
-            ) : (
-              'LOADING...'
             )}
           </div>
           <div

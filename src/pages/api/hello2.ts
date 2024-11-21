@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 
-type Data = {
+export type Data = {
   confirmType: string;
   cardNumber: string;
   user: string;
@@ -22,25 +22,31 @@ export default async function handler(
   //   process.env.SUPABASE_ANON_KEY || ''
   // );
   const date = req.query.date as string;
-  console.log('date', date);
+  const user = req.query.name as string;
+  console.log('user', user);
   try {
     const response = await fetch(process.env.API_ENDPOINT || '');
-    const data = (await response.json()) as Data[];
+    const data = (await response.json()) as { data: Data[] };
     if (data) {
-      console.log('data', data);
+      const temp = data.data
+        .map((item) => {
+          if (item.confirmType === '취소') {
+            return {
+              ...item,
+              fee: -parseInt(item.fee),
+            };
+          }
+          return item;
+        })
+        .filter((item) => item.user.trim() === user.trim())
+        .filter((item) => {
+          return dayjs(item.date).isSame(dayjs(date), 'month');
+        })
+        .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
+      console.log('data 값 : ', temp);
       res.status(200).json({
         message: '성공',
-        data: data
-          .map((item) => {
-            if (item.confirmType === '취소') {
-              return {
-                ...item,
-                fee: -parseInt(item.fee),
-              };
-            }
-            return item;
-          })
-          .reduce((a, b) => a + parseInt(b.fee.toString()), 0),
+        data: temp,
       });
     }
   } catch (err) {

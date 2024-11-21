@@ -1,4 +1,4 @@
-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
+// 데이터 조회 api
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
@@ -25,17 +25,26 @@ export default async function handler(
   try {
     const { data, error } = await supabase
       .from('card-usages')
-      .select('fee, date')
+      .select('fee, date, confirmType')
       .gte('date', dayjs(date).startOf('month').format('YYYY-MM-DD'))
       .lte('date', dayjs(date).endOf('month').format('YYYY-MM-DD'))
       .not('fee', 'is', null)
-      .eq('confirmType', '승인')
       .eq('user', req.query.name);
     if (data) {
       console.log('data', data);
       res.status(200).json({
         message: '성공',
-        data: data.reduce((a, b) => a + b.fee, 0),
+        data: data
+          .map((item) => {
+            if (item.confirmType === '취소') {
+              return {
+                ...item,
+                fee: -parseInt(item.fee),
+              };
+            }
+            return item;
+          })
+          .reduce((a, b) => a + b.fee, 0),
       });
     } else if (error) {
       throw new Error(error.message);

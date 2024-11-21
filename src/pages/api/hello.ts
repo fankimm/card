@@ -39,6 +39,7 @@ export default async function handler(
   }
 
   const param = {
+    createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
     confirmType,
     cardNumber,
     user,
@@ -51,13 +52,10 @@ export default async function handler(
   };
   try {
     console.log('파싱결과', param);
-    const response = await fetch(
-      'https://script.google.com/macros/s/AKfycbxm5-gpmApg7iOYPtvc7K2ZNITF2poZjdFDOK7ZPc6oDhyWJmUeF2-EIqIPUMOmAHnd/exec',
-      {
-        method: 'POST',
-        body: JSON.stringify(param),
-      }
-    );
+    const response = await fetch(process.env.API_ENDPOINT || '', {
+      method: 'POST',
+      body: JSON.stringify(param),
+    });
     const data = await response.json();
     console.log('fetch 결과', data);
     res.status(200).json(param);

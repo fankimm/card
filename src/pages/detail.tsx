@@ -49,6 +49,7 @@ const Detail = ({ date, setDate }: { date: string; setDate: string }) => {
         <div className="w-full max-w-5xl p-2">
           {loading && <div>Loading...</div>}
           {data?.map((item) => {
+            console.log(item.time);
             return (
               <div className="flex justify-between p-2" key={item.id}>
                 <div className="flex">

@@ -1,4 +1,5 @@
 // 데이터 조회 api
+import util from 'util';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
@@ -27,6 +28,7 @@ export default async function handler(
   try {
     const response = await fetch(process.env.API_ENDPOINT || '');
     const data = (await response.json()) as { data: Data[] };
+    console.log('data', data);
     if (data) {
       const temp = data.data
         .map((item) => {
@@ -42,8 +44,9 @@ export default async function handler(
         .filter((item) => {
           return dayjs(item.date).isSame(dayjs(date), 'month');
         })
+        .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
         .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
-      console.log('data 값 : ', temp);
+      console.log(util.inspect(temp, { maxArrayLength: null }));
       res.status(200).json({
         message: '성공',
         data: temp,

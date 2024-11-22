@@ -1,8 +1,7 @@
-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+// import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
-import { Data } from './hello2';
+import { Data, getCachedData } from '../../lib/data-cache';
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,11 +15,10 @@ export default async function handler(
   const date = req.query.date as string;
   const user = req.query.name as string;
   try {
-    const response = await fetch(process.env.API_ENDPOINT || '');
-    const data = (await response.json()) as { data: Data[] };
+    const data = getCachedData();
     if (data) {
-      const temp = data.data
-        .map((item) => {
+      const temp = data
+        ?.map((item) => {
           if (item.confirmType === '취소') {
             return {
               ...item,

@@ -1,63 +1,77 @@
 // 데이터 조회 api
-import util from 'util';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+// import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
+import 'dayjs/locale/ko';
 
-export type Data = {
-  confirmType: string;
-  cardNumber: string;
-  user: string;
-  date: string;
-  time: string;
-  fee: string;
-  place: string;
+import { Data, getCachedData, setCachedData } from '@/lib/data-cache';
+
+console.log('--- 서버시작 ---');
+const getDataFromApi = async (type: 'SERVER' | 'CLIENT') => {
+  try {
+    const response = await fetch(process.env.API_ENDPOINT || '');
+    const data = (await response.json()) as { data: Data[] };
+    if (type === 'SERVER') {
+      setCachedData(data.data);
+    }
+    if (type === 'CLIENT') {
+      return data.data;
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      console.log(err.message);
+    }
+  }
 };
+
+getDataFromApi('SERVER'); // 초기 데이터 로드
+const intervalId = setInterval(() => {
+  // 오전 10시부터 오후 4시까지 데이터만 조회
+  if (dayjs().hour() > 10 || dayjs().hour() < 16) {
+    console.log('서버조회 했어요');
+    // getDataFromApi('SERVER');
+  } else {
+    clearInterval(intervalId);
+    setCachedData(undefined);
+  }
+}, 5 * 60 * 1000); // 5분마다 데이터 갱신
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<any>
 ) {
+  const date = req.query.date as string;
+  const user = req.query.name as string;
+  let data = getCachedData();
+  if (!data) {
+    data = await getDataFromApi('CLIENT');
+  }
+  const 정제된데이터 = data
+    ?.map((item) => {
+      if (item.confirmType === '취소') {
+        return {
+          ...item,
+          fee: -parseInt(item.fee),
+        };
+      }
+      return item;
+    })
+    .filter((item) => item.user.trim() === user.trim())
+    .filter((item) => {
+      return dayjs(item.date).isSame(dayjs(date), 'month');
+    })
+    .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
+    .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
+  res.status(200).json({
+    message: '성공',
+    data: 정제된데이터,
+  });
+
   // supabase 로직
   // const supabase = createClient(
   //   process.env.SUPABASE_URL || '',
   //   process.env.SUPABASE_ANON_KEY || ''
   // );
-  const date = req.query.date as string;
-  const user = req.query.name as string;
-  console.log('user', user);
-  try {
-    const response = await fetch(process.env.API_ENDPOINT || '');
-    const data = (await response.json()) as { data: Data[] };
-    console.log('data', data);
-    if (data) {
-      const temp = data.data
-        .map((item) => {
-          if (item.confirmType === '취소') {
-            return {
-              ...item,
-              fee: -parseInt(item.fee),
-            };
-          }
-          return item;
-        })
-        .filter((item) => item.user.trim() === user.trim())
-        .filter((item) => {
-          return dayjs(item.date).isSame(dayjs(date), 'month');
-        })
-        .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
-        .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
-      console.log(util.inspect(temp, { maxArrayLength: null }));
-      res.status(200).json({
-        message: '성공',
-        data: temp,
-      });
-    }
-  } catch (err) {
-    console.log(err);
-    if (err instanceof Error) {
-      res.status(500).json({ message: err.message || '에러발생' });
-    }
-  }
 
   // 슈퍼베이스 로직
   // try {

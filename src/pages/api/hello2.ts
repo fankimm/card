@@ -27,6 +27,7 @@ export const getDataFromApi = async (type: 'SERVER' | 'CLIENT') => {
 getDataFromApi('SERVER'); // 초기 데이터 로드
 const intervalId = setInterval(() => {
   // 오전 10시부터 오후 4시까지 데이터만 조회
+  console.log('현재시간', dayjs().hour());
   if (dayjs().hour() > 10 || dayjs().hour() < 16) {
     console.log(
       `setInterval 서버조회 : ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`

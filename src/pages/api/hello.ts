@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import { get } from 'http';
-import { getCachedData } from '@/lib/data-cache';
+import { getCachedData, setCachedData } from '@/lib/data-cache';
 
 export default async function handler(
   req: NextApiRequest,
@@ -59,12 +59,17 @@ export default async function handler(
       body: JSON.stringify(param),
     });
     const data = await response.json();
-    const cache = {
-      data: [
-        ...(getCachedData() || []),
-        { ...param, id: parseInt(data.lastId) + 1 },
-      ],
+    const update = {
+      confirmType,
+      cardNumber,
+      user,
+      date,
+      time,
+      fee,
+      place,
     };
+    const cache = [...(getCachedData() || []), update];
+    setCachedData(cache);
     console.log('fetch 결과', data);
     res.status(200).json(param);
   } catch (err) {

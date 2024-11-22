@@ -8,10 +8,11 @@ import { Data, getCachedData, setCachedData } from '@/lib/data-cache';
 
 console.log('--- 서버시작 ---');
 console.log('현재시간', dayjs().format('YYYY-MM-DD HH:mm:ss'));
-export const getData = async (type = 'DEFAULT') => {
+export const getData = async () => {
   try {
     const cachedData = getCachedData();
     if (!cachedData) {
+      console.log('캐시없음');
       const response = await fetch(process.env.API_ENDPOINT || '');
       const data = (await response.json()) as { data: Data[] };
       setCachedData(data.data);

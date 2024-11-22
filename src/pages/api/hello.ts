@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import { get } from 'http';
 import { getCachedData, setCachedData } from '@/lib/data-cache';
+import { getData } from './hello2';
 
 export default async function handler(
   req: NextApiRequest,
@@ -13,7 +14,7 @@ export default async function handler(
     process.env.SUPABASE_URL || '',
     process.env.SUPABASE_ANON_KEY || ''
   );
-
+  await getData();
   //const mes = '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭'
   const mes = req.body;
   console.log('v = 0.2');

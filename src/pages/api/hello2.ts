@@ -18,6 +18,9 @@ declare global {
   namespace NodeJS {
     interface Global {
       cachedData?: Data[];
+      myData: {
+        instanceId?: string;
+      };
     }
   }
 }

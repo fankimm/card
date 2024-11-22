@@ -1,15 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
-declare global {
-  namespace NodeJS {
-    interface Global {
-      myData: {
-        instanceId?: string;
-      };
-    }
-  }
-}
-
 (global as any).myData = (global as any).myData || {};
 
 // pages/api/test.js

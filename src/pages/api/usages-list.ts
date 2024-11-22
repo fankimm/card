@@ -16,6 +16,7 @@ export default async function handler(
   const date = req.query.date as string;
   const user = req.query.name as string;
   try {
+    await getData();
     const data = getCachedData();
     const temp = data?.data
       ?.map((item) => {

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 // import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import { Data, getCachedData } from '../../lib/data-cache';
+import { getDataFromApi } from './hello2';
 
 export default async function handler(
   req: NextApiRequest,
@@ -15,25 +16,26 @@ export default async function handler(
   const date = req.query.date as string;
   const user = req.query.name as string;
   try {
-    const data = getCachedData();
-    if (data) {
-      const temp = data
-        ?.map((item) => {
-          if (item.confirmType === '취소') {
-            return {
-              ...item,
-              fee: -parseInt(item.fee),
-            };
-          }
-          return item;
-        })
-        .filter((item) => item.user.trim() === user.trim())
-        .filter((item) => {
-          return dayjs(item.date).isSame(dayjs(date), 'month');
-        })
-        .filter((item) => item.time > '10:00:00' && item.time < '16:00:00');
-      res.status(200).json(temp);
+    let data = getCachedData();
+    if (!data) {
+      data = await getDataFromApi('CLIENT');
     }
+    const temp = data
+      ?.map((item) => {
+        if (item.confirmType === '취소') {
+          return {
+            ...item,
+            fee: -parseInt(item.fee),
+          };
+        }
+        return item;
+      })
+      .filter((item) => item.user.trim() === user.trim())
+      .filter((item) => {
+        return dayjs(item.date).isSame(dayjs(date), 'month');
+      })
+      .filter((item) => item.time > '10:00:00' && item.time < '16:00:00');
+    res.status(200).json(temp);
   } catch (error) {
     if (error instanceof Error) {
       res.status(500).json({ message: error.message || '에러발생' });

@@ -7,7 +7,7 @@ import 'dayjs/locale/ko';
 import { Data, getCachedData, setCachedData } from '@/lib/data-cache';
 
 console.log('--- 서버시작 ---');
-const getDataFromApi = async (type: 'SERVER' | 'CLIENT') => {
+export const getDataFromApi = async (type: 'SERVER' | 'CLIENT') => {
   try {
     const response = await fetch(process.env.API_ENDPOINT || '');
     const data = (await response.json()) as { data: Data[] };

@@ -1,8 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 // import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
-import { Data, getCachedData } from '../../lib/data-cache';
 import { getData } from './hello2';
+
+type CachedDataType = {
+  confirmType: string;
+  fee: string;
+  user: string;
+  date: string;
+  time: string;
+};
+
+declare global {
+  var cachedData: CachedDataType[];
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,7 +28,7 @@ export default async function handler(
   const user = req.query.name as string;
   try {
     await getData();
-    const data = getCachedData();
+    const data = global.cachedData;
     const temp = data
       ?.map((item) => {
         if (item.confirmType === '취소') {
@@ -33,7 +44,7 @@ export default async function handler(
         return dayjs(item.date).isSame(dayjs(date), 'month');
       })
       .filter((item) => item.time > '10:00:00' && item.time < '16:00:00');
-    console.log('temp 한건', temp?.slice(1));
+    console.log('temp 한건', temp?.[0]);
     res.status(200).json(temp);
   } catch (error) {
     if (error instanceof Error) {

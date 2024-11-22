@@ -2,9 +2,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
-import { get } from 'http';
-import { getCachedData, setCachedData } from '@/lib/data-cache';
 import { getData } from './hello2';
+import util from 'util';
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,8 +15,10 @@ export default async function handler(
   );
   await getData();
   //const mes = '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭'
-  const mes = req.body;
+  const isDev = process.env.NODE_ENV === 'development';
+  const mes = isDev ? JSON.parse(req.body) : req.body;
   console.log('v = 0.2');
+  console.log('리퀘스트', req.body);
   console.log('리퀘스트', mes.test);
   const parseWithLine = mes.test
     .replaceAll('\r', '')
@@ -64,14 +65,23 @@ export default async function handler(
       confirmType,
       cardNumber,
       user,
-      date,
-      time,
+      date: dayjs(`2024/${date}`, 'YYYY/MM/DD').format('YYYY-MM-DD'),
+      time: dayjs(`2024/${date} ${time}:00`, 'YYYY/MM/DD HH:mm:ss').format(
+        'HH:mm:ss'
+      ),
       fee,
       place,
     };
-    const cache = [...(getCachedData() || []), update];
-    setCachedData(cache);
+    const cachedData = global.cachedData || [];
+    console.log('업데이트 후 캐시 조회', cachedData);
+    const cache = [...cachedData, update];
+
     console.log('fetch 결과', data);
+    if (data?.message === '성공') {
+      global.cachedData = cache;
+      console.log('업데이트 후 셋캐시');
+      console.log(util.inspect(global.cachedData, { maxArrayLength: null }));
+    }
     res.status(200).json(param);
   } catch (err) {
     console.log(err);

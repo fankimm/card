@@ -54,6 +54,22 @@ export default function Home({ date, setDate }: HomeProps) {
     return (
       <div className="h-screen">
         <div className="p-8 flex justify-end gap-4">
+          {process.env.NODE_ENV === 'development' && (
+            <div
+              onClick={() => {
+                fetch('/api/hello', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    test: `[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n11/20 12:38\r\n16,750원 일시불\r\n오늘은닭테스트${dayjs().format(
+                      'mm'
+                    )}`,
+                  }),
+                });
+              }}
+            >
+              테스트 발송
+            </div>
+          )}
           <div
             className="button opposite w-20 text-center"
             onClick={() => {

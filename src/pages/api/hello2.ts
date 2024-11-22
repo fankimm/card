@@ -3,19 +3,35 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 // import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
+import util from 'util';
+export interface Data {
+  confirmType: string;
+  cardNumber: string;
+  user: string;
+  date: string;
+  time: string;
+  fee: string;
+  place: string;
+}
 
-import { Data, getCachedData, setCachedData } from '@/lib/data-cache';
+declare global {
+  namespace NodeJS {
+    interface Global {
+      cachedData?: Data[];
+    }
+  }
+}
 
 console.log('--- 서버시작 ---');
 console.log('현재시간', dayjs().format('YYYY-MM-DD HH:mm:ss'));
 export const getData = async () => {
   try {
-    const cachedData = getCachedData();
+    const cachedData = (global as unknown as NodeJS.Global).cachedData;
     if (!cachedData) {
       console.log('캐시없음');
       const response = await fetch(process.env.API_ENDPOINT || '');
       const data = (await response.json()) as { data: Data[] };
-      setCachedData(data.data);
+      (global as any).cachedData = data.data as Data[];
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -31,7 +47,7 @@ export default async function handler(
   await getData();
   const date = req.query.date as string;
   const user = req.query.name as string;
-  const data = getCachedData();
+  const data = (global as unknown as NodeJS.Global).cachedData as Data[];
   const 정제된데이터 = data
     ?.map((item) => {
       if (item.confirmType === '취소') {
@@ -48,6 +64,9 @@ export default async function handler(
     })
     .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
     .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
+  console.log('조회 결과');
+  console.log(util.inspect(global.cachedData, { maxArrayLength: null }));
+  console.log('정제된데이터', 정제된데이터);
   res.status(200).json({
     message: '성공',
     data: 정제된데이터,

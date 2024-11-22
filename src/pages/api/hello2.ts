@@ -7,6 +7,7 @@ import 'dayjs/locale/ko';
 import { Data, getCachedData, setCachedData } from '@/lib/data-cache';
 
 console.log('--- 서버시작 ---');
+console.log('현재시간', dayjs().hour());
 export const getDataFromApi = async (type: 'SERVER' | 'CLIENT') => {
   try {
     const response = await fetch(process.env.API_ENDPOINT || '');

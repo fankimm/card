@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import Login from '@/components/login';
@@ -26,8 +26,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSearch = () => {
-    console.log('date', date);
+  const handleSearch = useCallback(() => {
     setLoading(true);
     fetch(
       `/api/hello2?name=${window.localStorage.getItem(
@@ -41,7 +40,8 @@ export default function Home({ date, setDate }: HomeProps) {
       .finally(() => {
         setLoading(false);
       });
-  };
+    fetch('/api/get-instance-id');
+  }, [date]);
   useEffect(() => {
     if (window.localStorage.getItem('loginInfo')) {
       handleSearch();
@@ -49,7 +49,7 @@ export default function Home({ date, setDate }: HomeProps) {
     } else {
       setHasSession(false);
     }
-  }, [router, date]);
+  }, [router, date, handleSearch]);
   if (hasSession) {
     return (
       <div className="h-screen">

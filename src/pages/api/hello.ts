@@ -73,14 +73,11 @@ export default async function handler(
       place,
     };
     const cachedData = global.cachedData || [];
-    console.log('업데이트 후 캐시 조회', cachedData);
     const cache = [...cachedData, update];
 
-    console.log('fetch 결과', data);
     if (data?.message === '성공') {
       global.cachedData = cache;
       console.log('업데이트 후 셋캐시');
-      console.log(util.inspect(global.cachedData, { maxArrayLength: null }));
     }
     res.status(200).json(param);
   } catch (err) {

@@ -64,9 +64,6 @@ export default async function handler(
     })
     .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
     .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
-  console.log('조회 결과');
-  console.log(util.inspect(global.cachedData, { maxArrayLength: null }));
-  console.log('정제된데이터', 정제된데이터);
   res.status(200).json({
     message: '성공',
     data: 정제된데이터,

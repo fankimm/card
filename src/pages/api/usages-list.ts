@@ -44,7 +44,6 @@ export default async function handler(
         return dayjs(item.date).isSame(dayjs(date), 'month');
       })
       .filter((item) => item.time > '10:00:00' && item.time < '16:00:00');
-    console.log('temp 한건', temp?.[0]);
     res.status(200).json(temp);
   } catch (error) {
     if (error instanceof Error) {

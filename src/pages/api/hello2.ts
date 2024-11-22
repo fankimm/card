@@ -15,6 +15,9 @@ export const getData = async () => {
       !cachedData ||
       (cachedData && dayjs().diff(dayjs(cachedData.time), 'minute') > 5)
     ) {
+      if (cachedData && dayjs().diff(dayjs(cachedData.time), 'minute') > 5) {
+        console.log('--- 캐시 만료됨 ---');
+      }
       const response = await fetch(process.env.API_ENDPOINT || '');
       const data = (await response.json()) as { data: Data[] };
       setCachedData(data.data, dayjs().format('YYYY-MM-DD HH:mm:ss'));

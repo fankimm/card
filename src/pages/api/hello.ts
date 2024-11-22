@@ -61,7 +61,7 @@ export default async function handler(
     const data = await response.json();
     const cache = {
       data: [
-        ...(getCachedData()?.data || []),
+        ...(getCachedData() || []),
         { ...param, id: parseInt(data.lastId) + 1 },
       ],
     };

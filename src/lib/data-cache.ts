@@ -8,18 +8,10 @@ export interface Data {
   place: string;
 }
 
-interface DataDTO {
-  time?: string;
-  data: Data[] | undefined;
-}
+let cachedData: Data[] | undefined = undefined;
 
-let cachedData: DataDTO | undefined = undefined;
-
-export const setCachedData = (data: Data[] | undefined, time: string) => {
-  cachedData = {
-    data,
-    time,
-  };
+export const setCachedData = (data: Data[] | undefined) => {
+  cachedData = data;
 };
 
 export const getCachedData = () => {

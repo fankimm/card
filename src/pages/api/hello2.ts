@@ -11,16 +11,10 @@ console.log('현재시간', dayjs().format('YYYY-MM-DD HH:mm:ss'));
 export const getData = async (type = 'DEFAULT') => {
   try {
     const cachedData = getCachedData();
-    if (
-      !cachedData ||
-      (cachedData && dayjs().diff(dayjs(cachedData.time), 'minute') > 5)
-    ) {
-      if (cachedData && dayjs().diff(dayjs(cachedData.time), 'minute') > 5) {
-        console.log('--- 캐시 만료됨 ---');
-      }
+    if (!cachedData) {
       const response = await fetch(process.env.API_ENDPOINT || '');
       const data = (await response.json()) as { data: Data[] };
-      setCachedData(data.data, dayjs().format('YYYY-MM-DD HH:mm:ss'));
+      setCachedData(data.data);
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -37,7 +31,7 @@ export default async function handler(
   const date = req.query.date as string;
   const user = req.query.name as string;
   const data = getCachedData();
-  const 정제된데이터 = data?.data
+  const 정제된데이터 = data
     ?.map((item) => {
       if (item.confirmType === '취소') {
         return {

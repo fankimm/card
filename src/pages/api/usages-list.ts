@@ -18,7 +18,7 @@ export default async function handler(
   try {
     await getData();
     const data = getCachedData();
-    const temp = data?.data
+    const temp = data
       ?.map((item) => {
         if (item.confirmType === '취소') {
           return {

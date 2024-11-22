@@ -8,7 +8,7 @@ import { Data, getCachedData, setCachedData } from '@/lib/data-cache';
 
 console.log('--- 서버시작 ---');
 console.log('현재시간', dayjs().format('YYYY-MM-DD HH:mm:ss'));
-export const getData = async () => {
+export const getData = async (type = 'DEFAULT') => {
   try {
     const cachedData = getCachedData();
     if (

@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
-const Detail = ({ date, setDate }: { date: string; setDate: string }) => {
+const Detail = ({ date }: { date: string }) => {
   const [data, setData] = useState<any[] | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -10,11 +10,7 @@ const Detail = ({ date, setDate }: { date: string; setDate: string }) => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setLoading(true);
-      fetch(
-        `/api/usages-list?name=${window.localStorage.getItem(
-          'loginInfo'
-        )}&date=${date || dayjs().format('YYYY-MM-DD')}`
-      )
+      fetch(`/api/usages-list?name=${window.localStorage.getItem('loginInfo')}`)
         .then((res) => {
           return res.json();
         })

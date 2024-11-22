@@ -7,16 +7,17 @@ import 'dayjs/locale/ko';
 import { Data, getCachedData, setCachedData } from '@/lib/data-cache';
 
 console.log('--- 서버시작 ---');
-console.log('현재시간', dayjs().hour());
-export const getDataFromApi = async (type: 'SERVER' | 'CLIENT') => {
+console.log('현재시간', dayjs().format('YYYY-MM-DD HH:mm:ss'));
+export const getData = async () => {
   try {
-    const response = await fetch(process.env.API_ENDPOINT || '');
-    const data = (await response.json()) as { data: Data[] };
-    if (type === 'SERVER') {
-      setCachedData(data.data);
-    }
-    if (type === 'CLIENT') {
-      return data.data;
+    const cachedData = getCachedData();
+    if (
+      !cachedData ||
+      (cachedData && dayjs().diff(dayjs(cachedData.time), 'minute') > 5)
+    ) {
+      const response = await fetch(process.env.API_ENDPOINT || '');
+      const data = (await response.json()) as { data: Data[] };
+      setCachedData(data.data, dayjs().format('YYYY-MM-DD HH:mm:ss'));
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -25,32 +26,15 @@ export const getDataFromApi = async (type: 'SERVER' | 'CLIENT') => {
   }
 };
 
-getDataFromApi('SERVER'); // 초기 데이터 로드
-const intervalId = setInterval(() => {
-  // 오전 10시부터 오후 4시까지 데이터만 조회
-  console.log('현재시간', dayjs().hour());
-  if (dayjs().hour() > 10 || dayjs().hour() < 16) {
-    console.log(
-      `setInterval 서버조회 : ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`
-    );
-    getDataFromApi('SERVER');
-  } else {
-    clearInterval(intervalId);
-    setCachedData(undefined);
-  }
-}, 5 * 60 * 1000); // 5분마다 데이터 갱신
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<any>
 ) {
+  await getData();
   const date = req.query.date as string;
   const user = req.query.name as string;
-  let data = getCachedData();
-  if (!data) {
-    data = await getDataFromApi('CLIENT');
-  }
-  const 정제된데이터 = data
+  const data = getCachedData();
+  const 정제된데이터 = data?.data
     ?.map((item) => {
       if (item.confirmType === '취소') {
         return {

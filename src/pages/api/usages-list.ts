@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 // import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
-import { getData } from './hello2';
+import { getData } from './get-total-fee';
 
 type CachedDataType = {
   confirmType: string;

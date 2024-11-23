@@ -29,7 +29,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const handleSearch = useCallback(() => {
     setLoading(true);
     fetch(
-      `/api/hello2?name=${window.localStorage.getItem(
+      `/api/get-total-fee?name=${window.localStorage.getItem(
         'loginInfo'
       )}&date=${date}`
     )
@@ -40,7 +40,7 @@ export default function Home({ date, setDate }: HomeProps) {
       .finally(() => {
         setLoading(false);
       });
-    fetch('/api/get-instance-id');
+    fetch('/api/cache-update');
   }, [date]);
   useEffect(() => {
     if (window.localStorage.getItem('loginInfo')) {

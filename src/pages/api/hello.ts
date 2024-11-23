@@ -2,8 +2,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
-import { getData } from './hello2';
 import util from 'util';
+import { getData } from './get-total-fee';
 
 export default async function handler(
   req: NextApiRequest,

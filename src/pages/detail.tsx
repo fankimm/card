@@ -10,7 +10,11 @@ const Detail = ({ date }: { date: string }) => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setLoading(true);
-      fetch(`/api/usages-list?name=${window.localStorage.getItem('loginInfo')}`)
+      fetch(
+        `/api/usages-list?name=${window.localStorage.getItem(
+          'loginInfo'
+        )}&date=${date}`
+      )
         .then((res) => {
           return res.json();
         })

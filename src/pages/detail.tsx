@@ -49,7 +49,6 @@ const Detail = ({ date }: { date: string }) => {
         <div className="w-full max-w-5xl p-2">
           {loading && <div>Loading...</div>}
           {data?.map((item) => {
-            console.log(item.time);
             return (
               <div className="flex justify-between p-2" key={item.id}>
                 <div className="flex">
@@ -75,7 +74,7 @@ const Detail = ({ date }: { date: string }) => {
                   </div>
                 </div>
                 <div>
-                  <div>{`${item.fee.toLocaleString('ko-kr')}원`}</div>
+                  <div>{`${parseInt(item.fee).toLocaleString('ko-kr')}원`}</div>
                 </div>
               </div>
             );

@@ -34,7 +34,9 @@ export default async function handler(
   const fee = parseWithLine[4].split(' ')[0].replaceAll('원', '');
   const place = parseWithLine[5];
   console.log(
-    dayjs(`2024/${date}`, 'YYYY/MM/DD HH:mm:ss').format('YYYY-MM-DD')
+    dayjs(`${dayjs().format('YYYY')}/${date}`, 'YYYY/MM/DD HH:mm:ss').format(
+      'YYYY-MM-DD'
+    )
   );
 
   if (time > '15:00:00') {
@@ -47,10 +49,13 @@ export default async function handler(
     confirmType,
     cardNumber,
     user,
-    date: dayjs(`2024/${date}`, 'YYYY/MM/DD').format('YYYY-MM-DD'),
-    time: dayjs(`2024/${date} ${time}:00`, 'YYYY/MM/DD HH:mm:ss').format(
-      'HH:mm:ss'
+    date: dayjs(`${dayjs().format('YYYY')}/${date}`, 'YYYY/MM/DD').format(
+      'YYYY-MM-DD'
     ),
+    time: dayjs(
+      `${dayjs().format('YYYY')}/${date} ${time}:00`,
+      'YYYY/MM/DD HH:mm:ss'
+    ).format('HH:mm:ss'),
     fee: parseInt(fee),
     place,
   };
@@ -65,10 +70,13 @@ export default async function handler(
       confirmType,
       cardNumber,
       user,
-      date: dayjs(`2024/${date}`, 'YYYY/MM/DD').format('YYYY-MM-DD'),
-      time: dayjs(`2024/${date} ${time}:00`, 'YYYY/MM/DD HH:mm:ss').format(
-        'HH:mm:ss'
+      date: dayjs(`${dayjs().format('YYYY')}/${date}`, 'YYYY/MM/DD').format(
+        'YYYY-MM-DD'
       ),
+      time: dayjs(
+        `${dayjs().format('YYYY')}/${date} ${time}:00`,
+        'YYYY/MM/DD HH:mm:ss'
+      ).format('HH:mm:ss'),
       fee,
       place,
     };

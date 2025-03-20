@@ -67,6 +67,7 @@ export default async function handler(
     })
     .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
     .filter((item) => parseInt(item.fee.toString(), 0) <= 20000)
+    .filter((item) => item.confirmType !== '취소')
     .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
   res.status(200).json({
     message: '성공',

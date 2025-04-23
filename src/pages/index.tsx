@@ -22,8 +22,11 @@ export default function Home({ date, setDate }: HomeProps) {
     'DECEMBER',
   ];
   const [total, setTotal] = useState<number | undefined>(undefined);
+  const [totalLength, setTotalLength] = useState<number | undefined>(undefined);
   const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
+
   const router = useRouter();
 
   const handleSearch = useCallback(() => {
@@ -35,7 +38,9 @@ export default function Home({ date, setDate }: HomeProps) {
     )
       .then((res) => res.json())
       .then((data) => {
+        console.log('data', data);
         setTotal(data.data);
+        setTotalLength(data.length);
       })
       .finally(() => {
         setLoading(false);
@@ -119,7 +124,14 @@ export default function Home({ date, setDate }: HomeProps) {
             </div>
           </div>
           <div>
-            <div className="subText text-2xl font-light">총 사용금액</div>
+            <div
+              className="subText text-2xl font-light"
+              onClick={() => {
+                setShowDetail(!showDetail);
+              }}
+            >
+              총 사용금액
+            </div>
             {loading ? (
               'LOADING...'
             ) : (
@@ -128,6 +140,72 @@ export default function Home({ date, setDate }: HomeProps) {
               )}`}</div>
             )}
           </div>
+          {showDetail && (
+            <>
+              {' '}
+              <div>
+                <div className="subText text-2xl font-light">총 사용건수</div>
+                {loading ? (
+                  'LOADING...'
+                ) : (
+                  <div className="text-4xl font-semibold mb-4">
+                    {totalLength}건
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="subText text-2xl font-light">
+                  건당 평균 금액
+                </div>
+                {loading ? (
+                  'LOADING...'
+                ) : (
+                  <div className="text-4xl font-semibold mb-4">
+                    ₩
+                    {((total || 0) / (totalLength || 0)).toLocaleString(
+                      'ko-KR'
+                    )}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="subText text-2xl font-light">남은 금액</div>
+                {loading ? (
+                  'LOADING...'
+                ) : (
+                  <div className="text-4xl font-semibold mb-4">
+                    ₩{(120000 - (total || 0)).toLocaleString('ko-KR')}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="subText text-2xl font-light">남은 일수</div>
+                {loading ? (
+                  'LOADING...'
+                ) : (
+                  <div className="text-4xl font-semibold mb-4">
+                    {12 - (totalLength || 0)}일
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="subText text-2xl font-light">
+                  평균 사용 가능 금액
+                </div>
+                {loading ? (
+                  'LOADING...'
+                ) : (
+                  <div className="text-4xl font-semibold mb-4">
+                    ₩
+                    {(
+                      (120000 - (total || 0)) /
+                      (12 - (totalLength || 0))
+                    ).toLocaleString('ko-KR')}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           <div
             className="button opposite"
             onClick={() => router.push('/detail')}

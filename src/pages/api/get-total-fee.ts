@@ -67,11 +67,16 @@ export default async function handler(
     })
     .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
     .filter((item) => parseInt(item.fee.toString(), 0) <= 20000)
-    .filter((item) => item.confirmType !== '취소')
-    .reduce((a, b) => a + parseInt(b.fee.toString()), 0);
+    .filter((item) => item.confirmType !== '취소');
+  const total = 정제된데이터.reduce(
+    (a, b) => a + parseInt(b.fee.toString()),
+    0
+  );
+  const totalLength = 정제된데이터.length;
   res.status(200).json({
     message: '성공',
-    data: 정제된데이터,
+    data: total,
+    length: totalLength,
   });
 
   // supabase 로직

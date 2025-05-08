@@ -26,7 +26,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
-
+  const 월지원급액한도 = 12 * 12000;
   const router = useRouter();
 
   const handleSearch = useCallback(() => {
@@ -174,7 +174,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   'LOADING...'
                 ) : (
                   <div className="text-4xl font-semibold mb-4">
-                    ₩{(120000 - (total || 0)).toLocaleString('ko-KR')}
+                    ₩{(월지원급액한도 - (total || 0)).toLocaleString('ko-KR')}
                   </div>
                 )}
               </div>
@@ -190,7 +190,7 @@ export default function Home({ date, setDate }: HomeProps) {
               </div>
               <div>
                 <div className="subText text-2xl font-light">
-                  평균 사용 가능 금액
+                  일평균 사용 가능 금액
                 </div>
                 {loading ? (
                   'LOADING...'
@@ -198,7 +198,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   <div className="text-4xl font-semibold mb-4">
                     ₩
                     {(
-                      (120000 - (total || 0)) /
+                      (월지원급액한도 - (total || 0)) /
                       (12 - (totalLength || 0))
                     ).toLocaleString('ko-KR')}
                   </div>

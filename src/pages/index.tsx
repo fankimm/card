@@ -60,6 +60,19 @@ export default function Home({ date, setDate }: HomeProps) {
       <div className="h-screen">
         <div className="p-8 flex justify-end gap-4">
           {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={() => {
+                fetch('/api/pick-seat')
+                  .then((res) => res.json())
+                  .then((data) => {
+                    console.log('data', data);
+                  });
+              }}
+            >
+              픽시트
+            </button>
+          )}
+          {process.env.NODE_ENV === 'development' && (
             <div
               onClick={() => {
                 fetch('/api/hello', {

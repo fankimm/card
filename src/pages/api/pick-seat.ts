@@ -33,11 +33,6 @@ export default async function handler(
 
     const officeDates: string[] =
       json?.[2]?.result?.data?.[0]?.officeDates ?? [];
-    console.log('now', now.toISOString().slice(0, 10));
-    console.log(
-      'isOfficeDates',
-      officeDates.includes(now.toISOString().slice(0, 10))
-    );
     const 오늘출근일임 = officeDates.includes(now.toISOString().slice(0, 10));
     if (!오늘출근일임) {
       return res
@@ -52,7 +47,7 @@ export default async function handler(
     });
 
     const csrfToken = (await csrfRes.json()).csrfToken;
-    const cookies = csrfRes.headers.get('set-cookie') ?? ''; // csrf 쿠키 포함
+    const cookiesForLogin = csrfRes.headers.get('set-cookie') ?? ''; // csrf 쿠키 포함
 
     const form = new URLSearchParams();
     form.append('name', '김지환');
@@ -68,7 +63,7 @@ export default async function handler(
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          Cookie: cookies, // csrf 쿠키 반드시 포함
+          Cookie: cookiesForLogin, // csrf 쿠키 반드시 포함
           Origin: 'https://pickseat.purple.io',
           Referer:
             'https://pickseat.purple.io/login?callbackUrl=https%3A%2F%2Fpickseat.purple.io%2F',
@@ -91,8 +86,8 @@ export default async function handler(
     //   .join('; ');
 
     // 4. 예약 API 호출 (seatId는 원하는 좌석 ID로 바꿔야 함)
-    const cookies2 = loginRes.headers.getSetCookie(); // node-fetch v3 이상
-    const parsedCookies = setCookieParser.parse(cookies2) as Cookie[];
+    const cookiesForCheckIn = loginRes.headers.getSetCookie(); // node-fetch v3 이상
+    const parsedCookies = setCookieParser.parse(cookiesForCheckIn) as Cookie[];
 
     const sessionToken = parsedCookies.find(
       (c) => c.name === '__Secure-next-auth.session-token'

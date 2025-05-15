@@ -31,13 +31,22 @@ export default async function handler(
 
     const json = await 출근일체크res.json();
 
-    const officeDates: string[] =
-      json?.[2]?.result?.data?.[0]?.officeDates ?? [];
+    console.log('출근일체크 결과:', JSON.stringify(json, null, 2));
+
+    const officeDates: string[] = json?.[2]?.result?.data?.[0]?.officeDates;
+    if (officeDates === undefined) {
+      throw new Error('출근일 데이터 가져오기 실패.');
+    }
+    console.log('실행일:', now.toISOString().slice(0, 10));
+    console.log('출근일 목록:', officeDates);
     const 오늘출근일임 = officeDates.includes(now.toISOString().slice(0, 10));
     if (!오늘출근일임) {
-      return res
-        .status(200)
-        .json({ ok: false, error: '오늘 출근일이 아닙니다.' });
+      return res.status(200).json({
+        ok: false,
+        error: '오늘 출근일이 아닙니다.',
+        runAt: now.toISOString().slice(0, 10),
+        officeDates,
+      });
     }
     const csrfRes = await fetch('https://pickseat.purple.io/api/auth/csrf', {
       headers: {

@@ -8,8 +8,14 @@ const timezone = require('dayjs/plugin/timezone'); // dependent on utc plugin
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+declare module 'dayjs' {
+  interface Dayjs {
+    tz(timezone: string): Dayjs;
+  }
+}
+
 export default async function handler(
-  req: NextApiRequest,
+  _req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {

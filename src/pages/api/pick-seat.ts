@@ -1,14 +1,23 @@
+import dayjs from 'dayjs';
 import { Cookie } from './../../../node_modules/@types/ws/node_modules/undici-types/cookies.d';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import setCookieParser from 'set-cookie-parser';
+
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone'); // dependent on utc plugin
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
-    const now = new Date();
-    const yearMonth = now.toISOString().slice(0, 7); // "2025-05"
+    const dateFormat = 'YYYY-MM-DD';
+    const now = dayjs().tz('Asia/Seoul');
+    console.log('현재 시간:', now.format('YYYY-MM-DD HH:mm:ss Z'));
 
+    const yearMonth = now.format(dateFormat).slice(0, 7); // "2025-05"
     const input = {
       1: { yearMonth },
       2: {
@@ -37,9 +46,9 @@ export default async function handler(
     if (officeDates === undefined) {
       throw new Error('출근일 데이터 가져오기 실패.');
     }
-    console.log('실행일:', now.toISOString().slice(0, 10));
+    console.log('실행일:', now.format('YYYY-MM-DD HH:mm:ss Z'));
     console.log('출근일 목록:', officeDates);
-    const 오늘출근일임 = officeDates.includes(now.toISOString().slice(0, 10));
+    const 오늘출근일임 = officeDates.includes(now.format(dateFormat));
     if (!오늘출근일임) {
       return res.status(200).json({
         ok: false,

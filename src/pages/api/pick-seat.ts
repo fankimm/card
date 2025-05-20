@@ -43,7 +43,18 @@ export default async function handler(
         },
       }
     );
-
+    const 서버시간 = dayjs(출근일체크res.headers.get('date'));
+    const 시 = 서버시간.hour();
+    if (시 < 12) {
+      const result = {
+        success: true,
+        canProceed: false,
+        reason: '아직 12시 전이라 실행 안 함',
+        serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
+      };
+      console.log('result:', result);
+      return res.status(200).json(result);
+    }
     const json = await 출근일체크res.json();
 
     console.log('출근일체크 결과:', JSON.stringify(json, null, 2));

@@ -142,7 +142,7 @@ export default async function handler(
         },
         body: JSON.stringify({
           '0': {
-            seatId: 50,
+            seatId: 49,
           },
         }),
       }

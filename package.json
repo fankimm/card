@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.44.4",
+    "cheerio": "^1.1.2",
     "dayjs": "^1.11.13",
     "next": "14.2.5",
     "react": "^18",

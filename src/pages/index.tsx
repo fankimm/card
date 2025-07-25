@@ -26,7 +26,8 @@ export default function Home({ date, setDate }: HomeProps) {
   const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
-  const 월지원급액한도 = 12 * 12000;
+  const [월지원급액한도, set월지원급액한도] = useState<number>(0);
+  const [출근일, set출근일] = useState<string[] | undefined>(undefined);
   const router = useRouter();
 
   const handleSearch = useCallback(() => {
@@ -48,7 +49,20 @@ export default function Home({ date, setDate }: HomeProps) {
     fetch('/api/cache-update');
   }, [date]);
   useEffect(() => {
-    if (window.localStorage.getItem('loginInfo')) {
+    const loginInfo = window.localStorage.getItem('loginInfo');
+    if (loginInfo) {
+      fetch(
+        `/api/get-office-days?name=${loginInfo}&date=${dayjs(date).format(
+          'YYYY-MM'
+        )}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          console.log('data', data);
+          set출근일(data.data);
+          set월지원급액한도(data.data.length * 12000);
+        });
+
       handleSearch();
       setHasSession(true);
     } else {
@@ -58,36 +72,13 @@ export default function Home({ date, setDate }: HomeProps) {
   if (hasSession) {
     return (
       <div className="h-screen">
-        <div className="p-8 flex justify-end gap-4">
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={() => {
-                fetch('/api/pick-seat')
-                  .then((res) => res.json())
-                  .then((data) => {
-                    console.log('data', data);
-                  });
-              }}
-            >
-              픽시트
-            </button>
-          )}
-          {process.env.NODE_ENV === 'development' && (
-            <div
-              onClick={() => {
-                fetch('/api/hello', {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    test: `[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n11/20 12:38\r\n16,750원 일시불\r\n오늘은닭테스트${dayjs().format(
-                      'mm'
-                    )}`,
-                  }),
-                });
-              }}
-            >
-              테스트 발송
-            </div>
-          )}
+        <div className="p-8 flex justify-between">
+          <div
+            className="button opposite"
+            onClick={() => router.push('/detail')}
+          >
+            상세 내역보기
+          </div>
           <div
             className="button opposite w-20 text-center"
             onClick={() => {
@@ -137,14 +128,7 @@ export default function Home({ date, setDate }: HomeProps) {
             </div>
           </div>
           <div>
-            <div
-              className="subText text-2xl font-light"
-              onClick={() => {
-                setShowDetail(!showDetail);
-              }}
-            >
-              총 사용금액
-            </div>
+            <div className="subText text-2xl font-light">총 사용금액</div>
             {loading ? (
               'LOADING...'
             ) : (
@@ -197,7 +181,11 @@ export default function Home({ date, setDate }: HomeProps) {
                   'LOADING...'
                 ) : (
                   <div className="text-4xl font-semibold mb-4">
-                    {12 - (totalLength || 0)}일
+                    {
+                      출근일?.filter((i) => dayjs().format('YYYY-MM-DD') < i)
+                        .length
+                    }
+                    일
                   </div>
                 )}
               </div>
@@ -212,7 +200,7 @@ export default function Home({ date, setDate }: HomeProps) {
                     ₩
                     {(
                       (월지원급액한도 - (total || 0)) /
-                      (12 - (totalLength || 0))
+                      ((출근일?.length || 0) - (totalLength || 0))
                     ).toLocaleString('ko-KR')}
                   </div>
                 )}
@@ -221,9 +209,11 @@ export default function Home({ date, setDate }: HomeProps) {
           )}
           <div
             className="button opposite"
-            onClick={() => router.push('/detail')}
+            onClick={() => {
+              setShowDetail(!showDetail);
+            }}
           >
-            상세 내역보기
+            남은사용금액
           </div>
         </div>
       </div>

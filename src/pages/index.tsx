@@ -79,6 +79,18 @@ export default function Home({ date, setDate }: HomeProps) {
           >
             상세 내역보기
           </div>
+
+          <div
+            className="button opposite w-24 text-center"
+            onClick={() => {
+              window.localStorage.removeItem('loginInfo');
+              router.push('/');
+            }}
+          >
+            로그아웃
+          </div>
+        </div>
+        <div className="flex justify-center items-center gap-4">
           <div
             className="button opposite w-20 text-center"
             onClick={() => {
@@ -108,15 +120,6 @@ export default function Home({ date, setDate }: HomeProps) {
           >
             다음달
           </button>
-          <div
-            className="button opposite w-24 text-center"
-            onClick={() => {
-              window.localStorage.removeItem('loginInfo');
-              router.push('/');
-            }}
-          >
-            로그아웃
-          </div>
         </div>
         <div className="flex flex-col justify-center items-center text-center">
           <div className="flex gap-3 text-[13vw] font-bold mb-4">

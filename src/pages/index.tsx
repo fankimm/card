@@ -60,7 +60,13 @@ export default function Home({ date, setDate }: HomeProps) {
         .then((data) => {
           console.log('data', data);
           set출근일(data.data);
-          set월지원급액한도(data.data.length * 12000);
+          let 월지급액한도계산;
+          if (data.data.length >= 12) {
+            월지급액한도계산 = 12000 * 12;
+          } else {
+            월지급액한도계산 = 12000 * data.data.length;
+          }
+          set월지원급액한도(월지급액한도계산);
         });
 
       handleSearch();

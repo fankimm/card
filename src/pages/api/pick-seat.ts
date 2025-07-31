@@ -60,12 +60,18 @@ export default async function handler(
     console.log('출근일체크 결과:', JSON.stringify(json, null, 2));
 
     const officeDates: string[] = json?.[2]?.result?.data?.[0]?.officeDates;
+    const dayOffDates: string[] = json?.[2]?.result?.data?.[0]?.dayOffDates;
+
     if (officeDates === undefined) {
       throw new Error('출근일 데이터 가져오기 실패.');
     }
     console.log('실행일:', now.format('YYYY-MM-DD HH:mm:ss Z'));
     console.log('출근일 목록:', officeDates);
-    const 오늘출근일임 = officeDates.includes(now.format(dateFormat));
+    console.log('연차 목록:', dayOffDates);
+
+    const 오늘출근일임 = officeDates
+      .filter((day) => !dayOffDates.includes(day))
+      .includes(now.format(dateFormat));
     if (!오늘출근일임) {
       return res.status(200).json({
         ok: false,

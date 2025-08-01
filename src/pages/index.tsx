@@ -164,9 +164,10 @@ export default function Home({ date, setDate }: HomeProps) {
                 ) : (
                   <div className="text-4xl font-semibold mb-4">
                     ₩
-                    {((total || 0) / (totalLength || 0)).toLocaleString(
-                      'ko-KR'
-                    )}
+                    {(totalLength === 0
+                      ? 0
+                      : (total || 0) / (totalLength || 0)
+                    ).toLocaleString('ko-KR')}
                   </div>
                 )}
               </div>

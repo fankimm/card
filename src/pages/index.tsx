@@ -62,8 +62,11 @@ export default function Home({ date, setDate }: HomeProps) {
           set출근일(data.data);
           let 월지급액한도계산;
           if (data.data.length >= 12) {
+            console.log('출근일 12일 이상');
             월지급액한도계산 = 12000 * 12;
           } else {
+            console.log('출근일 12일 미만');
+            console.log('data', data);
             월지급액한도계산 = 12000 * data.data.length;
           }
           set월지원급액한도(월지급액한도계산);
@@ -96,45 +99,38 @@ export default function Home({ date, setDate }: HomeProps) {
             로그아웃
           </div>
         </div>
-        <div className="flex justify-center items-center gap-4">
-          <div
-            className="button opposite w-20 text-center"
-            onClick={() => {
-              setDate(dayjs().format('YYYY-MM-DD'));
-            }}
-          >
-            오늘
-          </div>
-          <div
-            className="button opposite w-20 text-center"
-            onClick={() => {
-              setDate(dayjs(date).subtract(1, 'month').format('YYYY-MM-DD'));
-            }}
-          >
-            이전달
-          </div>
-          <button
-            className={`${
-              dayjs(date).isSame(dayjs(), 'month')
-                ? 'disabledButton'
-                : 'button opposite'
-            }  w-20 text-center`}
-            disabled={dayjs(date).isSame(dayjs(), 'month')}
-            onClick={() => {
-              setDate(dayjs(date).add(1, 'month').format('YYYY-MM-DD'));
-            }}
-          >
-            다음달
-          </button>
-        </div>
         <div className="flex flex-col justify-center items-center text-center">
-          <div className="flex gap-3 text-[13vw] font-bold mb-4">
+          <div className="flex gap-3 font-bold mb-4 justify-center items-center">
             <div
-              className="hover:cursor-pointer text-red"
-              onClick={handleSearch}
+              className="button opposite flex justify-center items-center h-8"
+              onClick={() => {
+                setDate(dayjs(date).subtract(1, 'month').format('YYYY-MM-DD'));
+              }}
+            >
+              {`<`}
+            </div>
+
+            <div
+              className="hover:cursor-pointer text-red text-[13vw]"
+              onClick={() => {
+                setDate(dayjs().format('YYYY-MM-DD'));
+              }}
             >
               {monthName[parseInt(dayjs(date).format('M')) - 1]}
             </div>
+            <button
+              className={`${
+                dayjs(date).isSame(dayjs(), 'month')
+                  ? 'disabledButton'
+                  : 'button opposite'
+              }  flex justify-center items-center h-8`}
+              disabled={dayjs(date).isSame(dayjs(), 'month')}
+              onClick={() => {
+                setDate(dayjs(date).add(1, 'month').format('YYYY-MM-DD'));
+              }}
+            >
+              {`>`}
+            </button>
           </div>
           <div>
             <div className="subText text-2xl font-light">총 사용금액</div>
@@ -222,7 +218,7 @@ export default function Home({ date, setDate }: HomeProps) {
               setShowDetail(!showDetail);
             }}
           >
-            남은사용금액
+            {showDetail ? '접기' : '상세 내역보기'}
           </div>
         </div>
       </div>

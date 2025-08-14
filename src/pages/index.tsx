@@ -28,6 +28,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const [showDetail, setShowDetail] = useState(false);
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
+  const [남은일수, set남은일수] = useState<number | undefined>(undefined);
   const router = useRouter();
 
   const handleSearch = useCallback(() => {
@@ -60,6 +61,10 @@ export default function Home({ date, setDate }: HomeProps) {
         .then((data) => {
           console.log('data', data);
           set출근일(data.data);
+          set남은일수(
+            data.data.filter((i: string) => dayjs().format('YYYY-MM-DD') < i)
+              .length || 0
+          );
           let 월지급액한도계산;
           if (data.data.length >= 12) {
             console.log('출근일 12일 이상');
@@ -69,6 +74,7 @@ export default function Home({ date, setDate }: HomeProps) {
             console.log('data', data);
             월지급액한도계산 = 12000 * data.data.length;
           }
+
           set월지원급액한도(월지급액한도계산);
         });
 
@@ -187,11 +193,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   'LOADING...'
                 ) : (
                   <div className="text-4xl font-semibold mb-4">
-                    {
-                      출근일?.filter((i) => dayjs().format('YYYY-MM-DD') < i)
-                        .length
-                    }
-                    일
+                    {남은일수}일
                   </div>
                 )}
               </div>
@@ -206,7 +208,7 @@ export default function Home({ date, setDate }: HomeProps) {
                     ₩
                     {(
                       (월지원급액한도 - (total || 0)) /
-                      ((출근일?.length || 0) - (totalLength || 0))
+                      (남은일수 || 0)
                     ).toLocaleString('ko-KR')}
                   </div>
                 )}
@@ -219,7 +221,7 @@ export default function Home({ date, setDate }: HomeProps) {
               setShowDetail(!showDetail);
             }}
           >
-            {showDetail ? '접기' : '상세 내역보기'}
+            {showDetail ? '접기' : '상세 정보'}
           </div>
         </div>
       </div>

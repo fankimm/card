@@ -5,14 +5,14 @@ type Season = 'spring' | 'autumn' | 'winter' | 'summer';
 
 export default function SeasonalEffect({ season }: { season: Season }) {
   const count = 29; // 36 -> ~20% 감소
-  const emojiPool: Record<Season, string[]> = {
-    spring: ['🌸', '🌼'],
-    summer: ['🍉', '🌴', '🧊'],
-    autumn: ['🍁', '🍂', '🎃'],
-    winter: ['❄️', '⛄️', '☃️', '🎄', '🧣'],
-  };
 
   const particles = useMemo(() => {
+    const emojiPool: Record<Season, string[]> = {
+      spring: ['🌸', '🌼'],
+      summer: ['🍉', '🌴', '🧊'],
+      autumn: ['🍁', '🍂', '🎃'],
+      winter: ['❄️', '⛄️', '☃️', '🎄', '🧣'],
+    };
     const pool = emojiPool[season] || emojiPool.spring;
     const arr: Array<{
       left: number;

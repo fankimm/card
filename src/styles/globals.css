@@ -50,6 +50,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Keep scrollbar gutter reserved to avoid layout shift between pages with/without scroll */
+html {
+  scrollbar-gutter: stable both-edges;
+}
+body {
+  overflow-y: scroll; /* Always reserve vertical scrollbar space */
+}
+
 .disabledButton {
   background-color: #c1c1c1;
   color: #a1a1a1;
@@ -351,6 +359,34 @@ body {
 }
 @keyframes fall {
   to { transform: translateY(110vh) rotate(360deg); }
+}
+
+/* Summer heat haze (subtle blur/wave) */
+/* Summer sweat drops (no global blur) */
+.sweat-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+}
+.sweat-drop {
+  position: absolute;
+  top: -24px;
+  animation-name: fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.sweat-drop-inner {
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+  border-radius: 60% 60% 70% 70%/70% 70% 40% 40%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(255,255,255,0.45));
+  box-shadow: inset 0 0 6px rgba(255,255,255,0.5), 0 1px 4px rgba(0,0,0,0.25);
+  filter: blur(0.5px);
+  animation-name: sway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }
 @keyframes sway {
   0%, 100% { margin-left: 0; }

@@ -21,6 +21,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import AdBanner from '@/components/AdBanner';
 import Twemoji from '@/components/Twemoji';
 import SeasonalEffect from '@/components/SeasonalEffect';
+import HeatHaze from '@/components/HeatHaze';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import Login from '@/components/login';
@@ -345,23 +346,24 @@ export default function Home({ date, setDate }: HomeProps) {
   const [showHome, setShowHome] = useState(true);
   const [showRecommend, setShowRecommend] = useState(false);
   const [statsUserOnly, setStatsUserOnly] = useState(true);
+  const [showAllList, setShowAllList] = useState(false);
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
   const [남은일수, set남은일수] = useState<number | undefined>(undefined);
   const [allData, setAllData] = useState<IOriginData[] | undefined>(undefined);
+  const [homeHeaderIntro, setHomeHeaderIntro] = useState(false);
   const router = useRouter();
 
   // Stable monthly tagline selection (no flicker on re-render)
   const monthKey = dayjs(date).format('YYYY-MM');
   const monthNumber = parseInt(dayjs(date).format('M'), 10);
-  // 계절 이펙트는 실제 현재 월 기준으로 고정 (탭/월 네비게이터 변경과 무관)
-  const realMonth = parseInt(dayjs().format('M'), 10);
+  // 계절 이펙트는 네비게이터의 월(date) 기준으로 표시되도록 변경
   const currentSeason: 'spring' | 'summer' | 'autumn' | 'winter' =
-    realMonth >= 3 && realMonth <= 5
+    monthNumber >= 3 && monthNumber <= 5
       ? 'spring'
-      : realMonth >= 6 && realMonth <= 8
+      : monthNumber >= 6 && monthNumber <= 8
       ? 'summer'
-      : realMonth >= 9 && realMonth <= 11
+      : monthNumber >= 9 && monthNumber <= 11
       ? 'autumn'
       : 'winter';
   const [hideSeasonal, setHideSeasonal] = useState(false);
@@ -644,6 +646,162 @@ export default function Home({ date, setDate }: HomeProps) {
     const last5 = placeStats.slice(-5);
     return last5.reverse();
   }, [placeStats]);
+
+  // 추가 인사이트 계산 (통계 탭용)
+  const insights = useMemo(() => {
+    const result: {
+      weekdayLines: string[];
+      trendLine?: string;
+      burstLine?: string;
+      cheapTop5: { place: string; avg: number }[];
+      priceyTop5: { place: string; avg: number }[];
+      badges: { master: string[]; casual: string[] };
+    } = {
+      weekdayLines: [],
+      cheapTop5: [],
+      priceyTop5: [],
+      badges: { master: [], casual: [] },
+    };
+
+    if (!allData) return result;
+    const login =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('loginInfo')
+        : '';
+    const baseFiltered = allData
+      .filter((i) =>
+        statsUserOnly && login ? i.user.trim() === (login || '').trim() : true
+      )
+      .filter((i) => i.confirmType !== '취소')
+      .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
+
+    // 1) 요일별 패턴 (월~금)
+    const yoilName: Record<number, string> = {
+      1: '월',
+      2: '화',
+      3: '수',
+      4: '목',
+      5: '금',
+    };
+    for (let d = 1; d <= 5; d += 1) {
+      const byDay = baseFiltered.filter((i) => dayjs(i.date).day() === d);
+      const map = new Map<string, number>();
+      byDay.forEach((i) =>
+        map.set(i.place || '기타', (map.get(i.place || '기타') || 0) + 1)
+      );
+      let best: string | null = null;
+      let bestCount = 0;
+      map.forEach((cnt, p) => {
+        if (cnt > bestCount) {
+          best = p;
+          bestCount = cnt;
+        }
+      });
+      if (best && bestCount > 0) {
+        result.weekdayLines.push(`${yoilName[d]}요일엔 ${best} 많이 감`);
+      }
+    }
+
+    // 2) 트렌드 (최근 3개월 기준 증가세가 가장 큰 곳)
+    const base = dayjs(date);
+    const months = [base.subtract(2, 'month'), base.subtract(1, 'month'), base];
+    const trendMap = new Map<string, number[]>();
+    baseFiltered.forEach((i) => {
+      const idx = months.findIndex((m) => dayjs(i.date).isSame(m, 'month'));
+      if (idx === -1) return;
+      const key = i.place || '기타';
+      const arr = trendMap.get(key) || [0, 0, 0];
+      arr[idx] += 1;
+      trendMap.set(key, arr);
+    });
+    let bestPlace: string | null = null;
+    let bestArr: number[] | null = null;
+    let maxSlope = -Infinity;
+    trendMap.forEach((arr, p) => {
+      const slope = arr[2] - arr[0];
+      if (slope > maxSlope) {
+        maxSlope = slope;
+        bestPlace = p;
+        bestArr = arr;
+      }
+    });
+    if (bestArr && maxSlope > 0 && bestPlace) {
+      result.trendLine = `요즘 ${bestPlace} 주가 상승 중 🔥 (최근 3개월 ${(
+        bestArr as number[]
+      ).join(' → ')})`;
+    }
+
+    // 3) 폭주 기록 (같은 날 같은 집 2회 이상)
+    const dayPlaceCount = new Map<string, number>();
+    baseFiltered.forEach((i) => {
+      const key = `${i.date}::${i.place}`;
+      dayPlaceCount.set(key, (dayPlaceCount.get(key) || 0) + 1);
+    });
+    let rbDate: string | null = null;
+    let rbPlace = '';
+    let rbCount = 0;
+    dayPlaceCount.forEach((cnt, key) => {
+      if (cnt >= 2) {
+        const [d, p] = key.split('::');
+        if (!rbDate || dayjs(d).isAfter(rbDate)) {
+          rbDate = d;
+          rbPlace = p;
+          rbCount = cnt;
+        }
+      }
+    });
+    if (rbDate && rbCount >= 2) {
+      result.burstLine = `${dayjs(rbDate).format(
+        'M월 D일'
+      )} ${rbPlace} ${rbCount}번… 이 날 무슨 일? 😅`;
+    }
+
+    // 4) 가성비 랭킹 (평균 금액 낮은/높은 TOP5)
+    const feeMap = new Map<string, { sum: number; cnt: number }>();
+    baseFiltered.forEach((i) => {
+      const key = i.place || '기타';
+      const prev = feeMap.get(key) || { sum: 0, cnt: 0 };
+      feeMap.set(key, {
+        sum: prev.sum + (parseInt(i.fee as any, 10) || 0),
+        cnt: prev.cnt + 1,
+      });
+    });
+    const feeArr = Array.from(feeMap.entries()).map(([place, v]) => ({
+      place,
+      avg: v.cnt ? v.sum / v.cnt : 0,
+    }));
+    const cheapTop5 = [...feeArr].sort((a, b) => a.avg - b.avg).slice(0, 5);
+    const priceyTop5 = [...feeArr].sort((a, b) => b.avg - a.avg).slice(0, 5);
+    result.cheapTop5 = cheapTop5;
+    result.priceyTop5 = priceyTop5;
+
+    // 5) 배지 (단골 마스터 10+, 어쩌다 손님 1)
+    const countMap = new Map<string, number>();
+    baseFiltered.forEach((i) =>
+      countMap.set(
+        i.place || '기타',
+        (countMap.get(i.place || '기타') || 0) + 1
+      )
+    );
+    const master: string[] = [];
+    const casual: string[] = [];
+    countMap.forEach((cnt, p) => {
+      if (cnt >= 10) master.push(p);
+      if (cnt === 1) casual.push(p);
+    });
+    result.badges = { master, casual };
+
+    return result;
+  }, [allData, statsUserOnly, date]);
+  useEffect(() => {
+    // 홈 탭 진입시 2초간 비홈 헤더 형태(삼성점자) 보여주고 월 네비게이터로 전환
+    if (showHome) {
+      setHomeHeaderIntro(true);
+      const timer = setTimeout(() => setHomeHeaderIntro(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showHome]);
+
   useEffect(() => {
     const onLogin = () => {
       const loginInfo = window.localStorage.getItem('loginInfo');
@@ -680,19 +838,47 @@ export default function Home({ date, setDate }: HomeProps) {
         {/* Seasonal effect: toggle-able for debug */}
         {!hideSeasonal &&
           (process.env.NODE_ENV === 'development' ? (
-            <SeasonalEffect
-              season={currentSeason === 'summer' ? 'spring' : currentSeason}
-            />
-          ) : (
-            (currentSeason === 'spring' ||
-              currentSeason === 'autumn' ||
-              currentSeason === 'winter') && (
+            currentSeason === 'summer' ? null : (
               <SeasonalEffect season={currentSeason} />
             )
+          ) : (
+            (() => {
+              const show = Math.random() < 0.1; // 10% 확률
+              if (!show) return null;
+              return currentSeason === 'summer' ? null : (
+                <SeasonalEffect season={currentSeason} />
+              );
+            })()
           ))}
         <div className="sticky top-0 z-20 glass glassSolid px-2">
           <div className="max-w-2xl mx-auto h-16 flex items-center">
-            {showHome ? (
+            {showHome && homeHeaderIntro ? (
+              // 홈 첫 2초: 삼성점자 헤더(비홈 형태) 표시
+              <div
+                className={`px-3 w-full flex items-center justify-center text-center`}
+              >
+                <div className="flex flex-col items-center">
+                  <div className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                    <Twemoji emoji="🍜" size={26} className="mr-2" />
+                    {'삼성점자'.split('').map((ch, i) => (
+                      <span
+                        key={`title-ch-intro-${i}`}
+                        className="letter-pop"
+                        style={{ animationDelay: `${i * 60}ms` }}
+                      >
+                        {ch}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="subText text-[8px] anim-slide-right">
+                    <span className="fg">삼</span>
+                    <span className="fg">성</span>동에서{' '}
+                    <span className="fg">점</span>심 맛있게 먹
+                    <span className="fg">자</span>
+                  </div>
+                </div>
+              </div>
+            ) : showHome ? (
               <div className="px-3 w-full flex items-center justify-between gap-2">
                 <button
                   className="tabItem"
@@ -769,6 +955,7 @@ export default function Home({ date, setDate }: HomeProps) {
               >
                 <div className="flex flex-col items-center">
                   <div className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                    <Twemoji emoji="🍜" size={26} className="mr-2" />
                     {'삼성점자'.split('').map((ch, i) => (
                       <span
                         key={`title-ch-${i}`}
@@ -779,6 +966,7 @@ export default function Home({ date, setDate }: HomeProps) {
                       </span>
                     ))}
                   </div>
+                  {/* Subtext slides from right; could swap to other variants by time */}
                   <div className="subText text-[8px] anim-slide-right">
                     <span className="fg">삼</span>
                     <span className="fg">성</span>동에서{' '}
@@ -1055,37 +1243,120 @@ export default function Home({ date, setDate }: HomeProps) {
                   )}
                 </div>
               </div>
+              {/* Insights */}
               <div className="surface rounded-2xl p-4">
-                <div className="text-lg font-semibold mb-2">전체 목록</div>
-                <div className="flex flex-col gap-2">
-                  {showSkeleton ? (
-                    <>
-                      <div className="skeleton h-4 w-3/5" />
-                      <div className="skeleton h-4 w-4/5" />
-                      <div className="skeleton h-4 w-2/3" />
-                    </>
-                  ) : (
-                    placeStats.map((s) => (
-                      <div
-                        key={`all-${s.place}`}
-                        className="flex items-center gap-3"
-                      >
-                        <div className="text-sm truncate w-32 sm:w-48">
-                          {s.place}
-                        </div>
-                        <div className="flex-1 h-3 surface rounded-full overflow-hidden">
+                <div className="text-lg font-semibold mb-2">인사이트</div>
+                <div className="flex flex-col gap-2 text-sm">
+                  {insights.weekdayLines.map((t, i) => (
+                    <div key={`weekday-${i}`} className="subText">
+                      {t}
+                    </div>
+                  ))}
+                  {insights.trendLine && (
+                    <div className="subText">{insights.trendLine}</div>
+                  )}
+                  {insights.burstLine && (
+                    <div className="subText">{insights.burstLine}</div>
+                  )}
+                  {(insights.badges.master.length > 0 ||
+                    insights.badges.casual.length > 0) && (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {insights.badges.master.slice(0, 3).map((p) => (
+                        <span
+                          key={`m-${p}`}
+                          className="opposite px-2 py-1 rounded-full text-xs"
+                        >
+                          단골 마스터 · {p}
+                        </span>
+                      ))}
+                      {insights.badges.casual.slice(0, 3).map((p) => (
+                        <span
+                          key={`c-${p}`}
+                          className="surface px-2 py-1 rounded-full text-xs"
+                        >
+                          어쩌다 손님 · {p}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(insights.cheapTop5.length > 0 ||
+                    insights.priceyTop5.length > 0) && (
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                      <div>
+                        <div className="text-xs mb-1">가성비 TOP5</div>
+                        {insights.cheapTop5.map((x) => (
                           <div
-                            className="h-full opposite rounded-full"
-                            style={{
-                              width: `${(s.count / maxPlaceCount) * 100}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="w-10 text-right text-sm">{s.count}</div>
+                            key={`ch-${x.place}`}
+                            className="flex justify-between subText text-xs"
+                          >
+                            <span className="truncate mr-2">{x.place}</span>
+                            <span>{`${Math.round(x.avg).toLocaleString(
+                              'ko-KR'
+                            )}원`}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))
+                      <div>
+                        <div className="text-xs mb-1">고가 TOP5</div>
+                        {insights.priceyTop5.map((x) => (
+                          <div
+                            key={`pr-${x.place}`}
+                            className="flex justify-between subText text-xs"
+                          >
+                            <span className="truncate mr-2">{x.place}</span>
+                            <span>{`${Math.round(x.avg).toLocaleString(
+                              'ko-KR'
+                            )}원`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
+              </div>
+              <div className="surface rounded-2xl p-4">
+                <div className="text-lg font-semibold mb-2">전체 목록</div>
+                <div className="flex justify-end mb-2">
+                  <button
+                    className="button px-3 py-1 text-xs"
+                    onClick={() => setShowAllList((v) => !v)}
+                  >
+                    {showAllList ? '접기' : '펼치기'}
+                  </button>
+                </div>
+                {showAllList && (
+                  <div className="flex flex-col gap-2">
+                    {showSkeleton ? (
+                      <>
+                        <div className="skeleton h-4 w-3/5" />
+                        <div className="skeleton h-4 w-4/5" />
+                        <div className="skeleton h-4 w-2/3" />
+                      </>
+                    ) : (
+                      placeStats.map((s) => (
+                        <div
+                          key={`all-${s.place}`}
+                          className="flex items-center gap-3"
+                        >
+                          <div className="text-sm truncate w-32 sm:w-48">
+                            {s.place}
+                          </div>
+                          <div className="flex-1 h-3 surface rounded-full overflow-hidden">
+                            <div
+                              className="h-full opposite rounded-full"
+                              style={{
+                                width: `${(s.count / maxPlaceCount) * 100}%`,
+                              }}
+                            />
+                          </div>
+                          <div className="w-10 text-right text-sm">
+                            {s.count}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
               {placeStats.length === 0 && (
                 <div className="subText">데이터가 없습니다.</div>

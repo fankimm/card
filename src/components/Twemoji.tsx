@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 
 type TwemojiProps = {
   emoji: string;
   size?: number; // px
   className?: string;
   title?: string;
+  offsetEm?: number; // positive -> move up by em
 };
 
 function toCodePoints(unicode: string): string {
@@ -23,50 +24,41 @@ export default function Twemoji({
   size = 20,
   className,
   title,
+  offsetEm = 0.06,
 }: TwemojiProps) {
-  const code = toCodePoints(emoji);
-  const svgSrc = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${code}.svg`;
-  const simpleCode = code
-    .split('-')
-    .filter((p) => p !== 'fe0f')
-    .join('-');
-  const svgNoFe0f = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${simpleCode}.svg`;
-  const pngNoFe0f = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${simpleCode}.png`;
-  const onError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    const step = img.getAttribute('data-step') || '0';
-    if (step === '0') {
-      img.setAttribute('data-step', '1');
-      img.src = svgNoFe0f;
-      return;
-    }
-    if (step === '1') {
-      img.setAttribute('data-step', '2');
-      img.src = pngNoFe0f;
-      return;
-    }
-    // 마지막 폴백: 시스템 이모지 텍스트로 대체
-    img.onerror = null;
-    img.style.display = 'none';
-    const span = document.createElement('span');
-    span.textContent = emoji;
-    span.style.display = 'inline-block';
-    span.style.verticalAlign = 'middle';
-    span.style.fontSize = `${size}px`;
-    img.insertAdjacentElement('afterend', span);
-  };
+  const [fallbackStep, setFallbackStep] = useState<0 | 1 | 2>(0);
+  const { svgSrc, svgNoFe0f, pngNoFe0f } = useMemo(() => {
+    const code = toCodePoints(emoji);
+    const svg = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${code}.svg`;
+    const simpleCode = code
+      .split('-')
+      .filter((p) => p !== 'fe0f')
+      .join('-');
+    const svg2 = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${simpleCode}.svg`;
+    const png = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${simpleCode}.png`;
+    return { svgSrc: svg, svgNoFe0f: svg2, pngNoFe0f: png };
+  }, [emoji]);
+  const src =
+    fallbackStep === 0 ? svgSrc : fallbackStep === 1 ? svgNoFe0f : pngNoFe0f;
+  const handleError = () =>
+    setFallbackStep((s) => (s === 2 ? 2 : ((s + 1) as 0 | 1 | 2)));
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={svgSrc}
+      src={src}
       alt={title || emoji}
       width={size}
       height={size}
       className={className}
-      style={{ display: 'inline-block', verticalAlign: 'middle' }}
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        transform: `translateY(-${offsetEm}em)`,
+      }}
       loading="lazy"
       referrerPolicy="no-referrer"
-      onError={onError}
+      onError={handleError}
     />
   );
 }

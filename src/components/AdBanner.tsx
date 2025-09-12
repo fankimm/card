@@ -8,13 +8,10 @@ declare global {
 
 interface AdBannerProps {
   slotId: string;
-  layout?: 'in-article' | 'responsive';
+  layout?: 'auto' | 'responsive' | 'in-article';
 }
 
-export default function AdBanner({
-  slotId,
-  layout = 'responsive',
-}: AdBannerProps) {
+export default function AdBanner({ slotId, layout = 'auto' }: AdBannerProps) {
   const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
   useEffect(() => {

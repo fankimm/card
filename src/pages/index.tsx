@@ -88,31 +88,12 @@ function Recommend({
     best.count
   }회 방문했어요.`;
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xl font-bold">오늘의 점심 추천</div>
-          <div className="text-2xl mt-1">{best.place}</div>
-          <div className="subText text-sm mt-2">{reason}</div>
-        </div>
+    <div className="flex items-start justify-between">
+      <div>
+        <div className="text-xl font-bold">오늘의 점심 추천</div>
+        <div className="text-2xl mt-1">{best.place}</div>
+        <div className="subText text-sm mt-2">{reason}</div>
       </div>
-      <div className="divider my-4" />
-      <a
-        href="https://map.naver.com"
-        target="_blank"
-        rel="noreferrer"
-        className="block"
-      >
-        <div className="surface rounded-xl p-3 flex items-center justify-between">
-          <div>
-            <div className="subText text-xs">스폰서</div>
-            <div className="text-sm sm:text-base font-semibold">
-              근처 맛집 혜택 보러가기
-            </div>
-          </div>
-          <div className="button opposite text-xs">바로가기</div>
-        </div>
-      </a>
     </div>
   );
 }
@@ -195,12 +176,14 @@ export default function Home({ date, setDate }: HomeProps) {
     }
   }, [date, originData, total, totalLength]);
 
+  const [highlightUpdated, setHighlightUpdated] = useState(false);
   const handleSearch = useCallback(() => {
     const login = window.localStorage.getItem('loginInfo');
     if (!login) return;
     const cacheKey = `card-usages:${login}:${dayjs(date).format('YYYY-MM')}`;
 
     // 1) 로컬 캐시 먼저 반영
+    let hadCache = false;
     try {
       const cached = window.localStorage.getItem(cacheKey);
       if (cached) {
@@ -209,11 +192,12 @@ export default function Home({ date, setDate }: HomeProps) {
         setOriginData(parsed.originData);
         setTotal(parsed.data);
         setTotalLength(parsed.length);
+        hadCache = true;
       }
     } catch {}
 
     // 2) 최신 데이터 페치
-    setLoading(true);
+    if (!hadCache) setLoading(true);
     fetch(`/api/get-total-fee?name=${login}&date=${date}`)
       .then((res) => res.json())
       .then((data) => {
@@ -224,6 +208,10 @@ export default function Home({ date, setDate }: HomeProps) {
         try {
           window.localStorage.setItem(cacheKey, JSON.stringify(data));
         } catch {}
+        if (hadCache) {
+          setHighlightUpdated(true);
+          setTimeout(() => setHighlightUpdated(false), 2000);
+        }
       })
       .finally(() => {
         setLoading(false);
@@ -384,7 +372,7 @@ export default function Home({ date, setDate }: HomeProps) {
             <div
               className={`surface w-full max-w-md p-6 rounded-2xl ${
                 process.env.NODE_ENV === 'development' ? 'cursor-copy' : ''
-              }`}
+              } ${highlightUpdated ? 'updatedPulse' : ''}`}
               onClick={() => {
                 if (process.env.NODE_ENV === 'development') {
                   copyMonthDataToClipboard();

@@ -230,13 +230,27 @@ body {
   border: none;
   box-shadow: none;
   color: rgb(var(--foreground-rgb-sub));
+  transition: color 180ms ease, background-color 180ms ease, transform 180ms ease, opacity 180ms ease;
 }
 
 .tabItemActive {
+  color: rgb(var(--foreground-rgb));
   background: transparent;
   border: none;
-  box-shadow: none;
-  color: rgb(var(--foreground-rgb));
+}
+.tabItemActive > div {
+  background: rgba(var(--foreground-rgb), 0.10);
+  border: 1px solid rgba(var(--foreground-rgb), 0.18);
+  border-radius: 10px;
+  padding: 4px 6px;
+}
+
+.tabItem svg {
+  opacity: 0.6;
+}
+.tabItemActive svg {
+  opacity: 1;
+  transform: scale(1.05);
 }
 
 @layer utilities {

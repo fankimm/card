@@ -55,7 +55,6 @@ export default function Home({ date, setDate }: HomeProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [statsUserOnly, setStatsUserOnly] = useState(true);
-  const [savedScrollTop, setSavedScrollTop] = useState(0);
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
   const [남은일수, set남은일수] = useState<number | undefined>(undefined);
@@ -64,19 +63,8 @@ export default function Home({ date, setDate }: HomeProps) {
 
   const scrollToTopFast = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const startY = window.scrollY || window.pageYOffset;
-    const duration = 100; // 더 빠르게
-    const startTime = performance.now();
-    const easeOutQuad = (t: number) => t * (2 - t);
-    const step = (now: number) => {
-      const elapsed = now - startTime;
-      const t = Math.min(1, elapsed / duration);
-      const eased = easeOutQuad(t);
-      const nextY = Math.max(0, Math.round(startY * (1 - eased)));
-      window.scrollTo(0, nextY);
-      if (t < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+    // 애니메이션 없이 즉시 상단으로 이동
+    window.scrollTo(0, 0);
   }, []);
 
   const [toast, setToast] = useState<string | null>(null);
@@ -115,23 +103,38 @@ export default function Home({ date, setDate }: HomeProps) {
   }, [date, originData, total, totalLength]);
 
   const handleSearch = useCallback(() => {
+    const login = window.localStorage.getItem('loginInfo');
+    if (!login) return;
+    const cacheKey = `card-usages:${login}:${dayjs(date).format('YYYY-MM')}`;
+
+    // 1) 로컬 캐시 먼저 반영
+    try {
+      const cached = window.localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setAllData(parsed.allData);
+        setOriginData(parsed.originData);
+        setTotal(parsed.data);
+        setTotalLength(parsed.length);
+      }
+    } catch {}
+
+    // 2) 최신 데이터 페치
     setLoading(true);
-    fetch(
-      `/api/get-total-fee?name=${window.localStorage.getItem(
-        'loginInfo'
-      )}&date=${date}`
-    )
+    fetch(`/api/get-total-fee?name=${login}&date=${date}`)
       .then((res) => res.json())
       .then((data) => {
         setAllData(data.allData);
         setOriginData(data.originData);
         setTotal(data.data);
         setTotalLength(data.length);
+        try {
+          window.localStorage.setItem(cacheKey, JSON.stringify(data));
+        } catch {}
       })
       .finally(() => {
         setLoading(false);
       });
-    fetch('/api/cache-update');
   }, [date]);
   useEffect(() => {
     const loginInfo = window.localStorage.getItem('loginInfo');
@@ -582,14 +585,11 @@ export default function Home({ date, setDate }: HomeProps) {
           <div className="h-10" />
         </div>
         {toast && <div className="toast anim-fade">{toast}</div>}
-        <div className="fixed left-0 right-0 bottomNav px-2">
-          <div className="max-w-2xl mx-auto px-4 py-2 grid grid-cols-5 gap-3 rounded-full surface">
+        <div className="fixed left-0 right-0 bottom-0 glass glassSolid pb-[calc(env(safe-area-inset-bottom)+16px)]">
+          <div className="w-full px-0 py-2 grid grid-cols-5 gap-0">
             <button
               className={`tabItem w-full ${showDetail ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setSavedScrollTop(
-                  typeof window !== 'undefined' ? window.scrollY : 0
-                );
                 setShowList(false);
                 setShowStats(false);
                 setShowDetail((v) => !v);
@@ -603,9 +603,6 @@ export default function Home({ date, setDate }: HomeProps) {
             <button
               className={`tabItem w-full ${showList ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setSavedScrollTop(
-                  typeof window !== 'undefined' ? window.scrollY : 0
-                );
                 setShowDetail(false);
                 setShowStats(false);
                 setShowList((v) => !v);
@@ -619,9 +616,6 @@ export default function Home({ date, setDate }: HomeProps) {
             <button
               className={`tabItem w-full ${showStats ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setSavedScrollTop(
-                  typeof window !== 'undefined' ? window.scrollY : 0
-                );
                 setShowDetail(false);
                 setShowList(false);
                 setShowStats((v) => !v);

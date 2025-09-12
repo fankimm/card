@@ -981,7 +981,7 @@ export default function Home({ date, setDate }: HomeProps) {
         <div className="max-w-2xl mx-auto px-4 mt-3 sm:mt-4 flex flex-col items-center text-center gap-6 pb-24">
           {showHome && (
             <div
-              className={`surface w-full max-w-md p-6 rounded-2xl ${
+              className={`surface w-full max-w-2xl p-6 rounded-2xl ${
                 process.env.NODE_ENV === 'development' ? 'cursor-copy' : ''
               } ${highlightUpdated ? 'updatedPulse' : ''}`}
               onClick={() => {
@@ -1004,7 +1004,7 @@ export default function Home({ date, setDate }: HomeProps) {
             </div>
           )}
           {showHome && (
-            <div className="surface w-full max-w-md p-6 rounded-2xl flex flex-col gap-6 anim-slide-up">
+            <div className="surface w-full max-w-2xl p-6 rounded-2xl flex flex-col gap-6 anim-slide-up">
               <div>
                 <div className="subText text-2xl font-light">총 사용건수</div>
                 {showSkeleton ? (

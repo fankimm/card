@@ -78,6 +78,57 @@ body {
   background: rgb(var(--border));
 }
 
+/* iOS safe-area friendly bottom nav offset */
+.bottomNav {
+  bottom: calc(env(safe-area-inset-bottom) + 12px);
+}
+
+/* Glassmorphism helpers */
+.glass {
+  background: linear-gradient(
+    180deg,
+    rgba(var(--bg), 0.55) 0%,
+    rgba(var(--bg), 0.35) 100%
+  );
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.02) 40%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 22px rgba(255, 255, 255, 0.06);
+}
+.glassBorder {
+  border: 1px solid rgba(var(--border), 0.6);
+}
+
+.glassBorderX {
+  border-left: 1px solid rgba(var(--border), 0.6);
+  border-right: 1px solid rgba(var(--border), 0.6);
+  border-top: 0;
+  border-bottom: 0;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

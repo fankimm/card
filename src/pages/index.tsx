@@ -146,8 +146,8 @@ export default function Home({ date, setDate }: HomeProps) {
   if (hasSession) {
     return (
       <div className="min-h-screen">
-        <div className="max-w-2xl mx-auto px-4 flex flex-col items-center text-center gap-6 pb-24">
-          <div className="flex gap-3 font-bold mb-4 justify-center items-center">
+        <div className="sticky top-0 z-20 glass glassBorder">
+          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-center gap-3 font-bold">
             <button
               className="button flex justify-center items-center h-8"
               onClick={() => {
@@ -167,9 +167,8 @@ export default function Home({ date, setDate }: HomeProps) {
                 />
               </svg>
             </button>
-
             <div
-              className="hover:cursor-pointer text-red text-5xl sm:text-6xl font-extrabold tracking-tight"
+              className="hover:cursor-pointer text-red text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight"
               onClick={() => {
                 setDate(dayjs().format('YYYY-MM-DD'));
               }}
@@ -201,6 +200,8 @@ export default function Home({ date, setDate }: HomeProps) {
               </svg>
             </button>
           </div>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 flex flex-col items-center text-center gap-6 pb-24">
           <div className="surface w-full max-w-md p-6 rounded-2xl">
             <div className="subText text-2xl font-light">총 사용금액</div>
             {loading ? (
@@ -314,11 +315,14 @@ export default function Home({ date, setDate }: HomeProps) {
           )}
           <div className="h-10" />
         </div>
-        <div className="fixed bottom-0 left-0 right-0 bg-[rgb(var(--bg))] border-t border-[rgb(var(--border))]">
-          <div className="max-w-2xl mx-auto px-6 py-2 grid grid-cols-3 gap-6">
+        <div className="fixed left-0 right-0 bottomNav px-2 glass glassBorderX">
+          <div className="max-w-2xl mx-auto px-6 py-3 grid grid-cols-3 gap-6 rounded-full surface">
             <button
               className={`button w-full ${showDetail ? 'opposite' : ''}`}
-              onClick={() => setShowDetail((v) => !v)}
+              onClick={() => {
+                setShowList(false);
+                setShowDetail((v) => !v);
+              }}
             >
               <div className="flex flex-col items-center text-xs">
                 <svg
@@ -334,7 +338,10 @@ export default function Home({ date, setDate }: HomeProps) {
             </button>
             <button
               className={`button w-full ${showList ? 'opposite' : ''}`}
-              onClick={() => setShowList((v) => !v)}
+              onClick={() => {
+                setShowDetail(false);
+                setShowList((v) => !v);
+              }}
             >
               <div className="flex flex-col items-center text-xs">
                 <svg

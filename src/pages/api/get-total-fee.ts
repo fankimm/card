@@ -77,6 +77,7 @@ export default async function handler(
     message: '성공',
     data: total,
     length: totalLength,
+    originData: 정제된데이터,
   });
 
   // supabase 로직

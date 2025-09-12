@@ -25,7 +25,7 @@ const Detail = ({ date }: { date: string }) => {
           setLoading(false);
         });
     }
-  }, []);
+  }, [date]);
   return (
     <div>
       <div className="sticky top-0 p-4 flex justify-between items-center backdrop-blur-lg">

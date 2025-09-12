@@ -6,6 +6,18 @@ interface HomeProps {
   date: string;
   setDate: Function;
 }
+export interface IOriginData {
+  id: string;
+  createdAt: string;
+  confirmType: string;
+  cardNumber: string;
+  user: string;
+  date: string;
+  time: string;
+  fee: string;
+  place: string;
+}
+
 export default function Home({ date, setDate }: HomeProps) {
   const monthName = [
     'JANUARY',
@@ -22,6 +34,9 @@ export default function Home({ date, setDate }: HomeProps) {
     'DECEMBER',
   ];
   const [total, setTotal] = useState<number | undefined>(undefined);
+  const [originData, setOriginData] = useState<IOriginData[] | undefined>(
+    undefined
+  );
   const [totalLength, setTotalLength] = useState<number | undefined>(undefined);
   const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -40,7 +55,8 @@ export default function Home({ date, setDate }: HomeProps) {
     )
       .then((res) => res.json())
       .then((data) => {
-        console.log('data', data);
+        console.log('get-total-fee data', data);
+        setOriginData(data.originData);
         setTotal(data.data);
         setTotalLength(data.length);
       })
@@ -59,12 +75,8 @@ export default function Home({ date, setDate }: HomeProps) {
       )
         .then((res) => res.json())
         .then((data) => {
-          console.log('data', data);
+          console.log('오리진 데이터', data);
           set출근일(data.data);
-          set남은일수(
-            data.data.filter((i: string) => dayjs().format('YYYY-MM-DD') < i)
-              .length || 0
-          );
           let 월지급액한도계산;
           if (data.data.length >= 12) {
             console.log('출근일 12일 이상');
@@ -83,7 +95,17 @@ export default function Home({ date, setDate }: HomeProps) {
     } else {
       setHasSession(false);
     }
-  }, [router, date, handleSearch]);
+  }, [date, handleSearch]);
+  useEffect(() => {
+    if (!출근일) return;
+    const 오늘먹음 = originData?.some(
+      (i: any) => dayjs().format('YYYY-MM-DD') === i.date
+    );
+    set남은일수(
+      출근일.filter((i: string) => dayjs().format('YYYY-MM-DD') <= i).length -
+        (오늘먹음 ? 1 : 0) || 0
+    );
+  }, [originData, 출근일]);
   if (hasSession) {
     return (
       <div className="h-screen">

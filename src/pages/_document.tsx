@@ -5,6 +5,8 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#101010" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="#101010" />
       </Head>
       <body>
         <Main />

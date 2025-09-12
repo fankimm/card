@@ -51,6 +51,7 @@ export default async function handler(
   const date = req.query.date as string;
   const user = req.query.name as string;
   const data = (global as unknown as NodeJS.Global).cachedData as Data[];
+  const 전체데이터 = data;
   const 정제된데이터 = data
     ?.map((item) => {
       if (item.confirmType === '취소') {
@@ -78,6 +79,7 @@ export default async function handler(
     data: total,
     length: totalLength,
     originData: 정제된데이터,
+    allData: 전체데이터,
   });
 
   // supabase 로직

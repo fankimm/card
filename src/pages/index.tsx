@@ -1,4 +1,12 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  LogOut,
+  Info,
+  List,
+  BarChart2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import Login from '@/components/login';
@@ -42,9 +50,15 @@ export default function Home({ date, setDate }: HomeProps) {
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<IOriginData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [statsUserOnly, setStatsUserOnly] = useState(true);
+  const [savedScrollTop, setSavedScrollTop] = useState(0);
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
   const [남은일수, set남은일수] = useState<number | undefined>(undefined);
+  const [allData, setAllData] = useState<IOriginData[] | undefined>(undefined);
   const router = useRouter();
 
   const handleSearch = useCallback(() => {
@@ -56,7 +70,7 @@ export default function Home({ date, setDate }: HomeProps) {
     )
       .then((res) => res.json())
       .then((data) => {
-        console.log('get-total-fee data', data);
+        setAllData(data.allData);
         setOriginData(data.originData);
         setTotal(data.data);
         setTotalLength(data.length);
@@ -113,6 +127,37 @@ export default function Home({ date, setDate }: HomeProps) {
     !isCurrentMonth || !남은일수 || 남은일수 <= 0 || remainingAmount <= 0
       ? null
       : Math.floor(remainingAmount / 남은일수);
+  const placeStats = useMemo(() => {
+    if (!allData) return [] as { place: string; count: number }[];
+    const login =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('loginInfo')
+        : '';
+    const filtered = allData
+      ?.filter((i) =>
+        statsUserOnly && login ? i.user.trim() === login.trim() : true
+      )
+      .filter((i) => i.confirmType !== '취소')
+      .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
+    const map = new Map<string, number>();
+    filtered.forEach((i) => {
+      const key = i.place || '기타';
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([place, count]) => ({ place, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [allData, statsUserOnly]);
+  const maxPlaceCount = useMemo(() => {
+    return placeStats.reduce((max, s) => (s.count > max ? s.count : max), 1);
+  }, [placeStats]);
+  const top5Stats = useMemo(() => {
+    return placeStats.slice(0, 5);
+  }, [placeStats]);
+  const bottom5Stats = useMemo(() => {
+    const last5 = placeStats.slice(-5);
+    return last5.reverse();
+  }, [placeStats]);
   useEffect(() => {
     const onLogin = () => {
       const loginInfo = window.localStorage.getItem('loginInfo');
@@ -146,62 +191,44 @@ export default function Home({ date, setDate }: HomeProps) {
   if (hasSession) {
     return (
       <div className="min-h-screen">
-        <div className="sticky top-0 z-20 glass glassBorder">
-          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-center gap-3 font-bold">
-            <button
-              className="button flex justify-center items-center h-8"
-              onClick={() => {
-                setDate(dayjs(date).subtract(1, 'month').format('YYYY-MM-DD'));
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="w-5 h-5"
+        <div className="sticky top-0 z-20 glass glassSolid px-2">
+          <div className="max-w-2xl mx-auto py-2">
+            <div className="px-3 flex items-center justify-between gap-2">
+              <button
+                className="tabItem"
+                onClick={() => {
+                  setDate(
+                    dayjs(date).subtract(1, 'month').format('YYYY-MM-DD')
+                  );
+                }}
               >
-                <path
-                  fillRule="evenodd"
-                  d="M15.78 3.97a.75.75 0 0 1 0 1.06L9.81 11l5.97 5.97a.75.75 0 1 1-1.06 1.06l-6.5-6.5a.75.75 0 0 1 0-1.06l6.5-6.5a.75.75 0 0 1 1.06 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
-            <div
-              className="hover:cursor-pointer text-red text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight"
-              onClick={() => {
-                setDate(dayjs().format('YYYY-MM-DD'));
-              }}
-            >
-              {monthName[parseInt(dayjs(date).format('M')) - 1]}
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div
+                className="hover:cursor-pointer flex-1 text-center text-red text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight"
+                onClick={() => {
+                  setDate(dayjs().format('YYYY-MM-DD'));
+                }}
+              >
+                {monthName[parseInt(dayjs(date).format('M')) - 1]}
+              </div>
+              <button
+                className={`tabItem ${
+                  dayjs(date).isSame(dayjs(), 'month')
+                    ? 'opacity-50 pointer-events-none'
+                    : ''
+                }`}
+                disabled={dayjs(date).isSame(dayjs(), 'month')}
+                onClick={() => {
+                  setDate(dayjs(date).add(1, 'month').format('YYYY-MM-DD'));
+                }}
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
-            <button
-              className={`${
-                dayjs(date).isSame(dayjs(), 'month')
-                  ? 'disabledButton'
-                  : 'button'
-              }  flex justify-center items-center h-8`}
-              disabled={dayjs(date).isSame(dayjs(), 'month')}
-              onClick={() => {
-                setDate(dayjs(date).add(1, 'month').format('YYYY-MM-DD'));
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="w-5 h-5"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8.22 3.97a.75.75 0 0 1 1.06 0l6.5 6.5a.75.75 0 0 1 0 1.06l-6.5 6.5a.75.75 0 0 1-1.06-1.06L14.19 11 8.22 5.03a.75.75 0 0 1 0-1.06z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
           </div>
         </div>
-        <div className="max-w-2xl mx-auto px-4 flex flex-col items-center text-center gap-6 pb-24">
+        <div className="max-w-2xl mx-auto px-4 mt-3 sm:mt-4 flex flex-col items-center text-center gap-6 pb-24">
           <div className="surface w-full max-w-md p-6 rounded-2xl">
             <div className="subText text-2xl font-light">총 사용금액</div>
             {loading ? (
@@ -213,7 +240,7 @@ export default function Home({ date, setDate }: HomeProps) {
             )}
           </div>
           {showDetail && (
-            <div className="surface w-full max-w-md p-6 rounded-2xl flex flex-col gap-6">
+            <div className="surface w-full max-w-md p-6 rounded-2xl flex flex-col gap-6 anim-slide-up">
               <div>
                 <div className="subText text-2xl font-light">총 사용건수</div>
                 {loading ? (
@@ -281,15 +308,21 @@ export default function Home({ date, setDate }: HomeProps) {
             </div>
           )}
           {showList && (
-            <div className="w-full max-w-2xl flex flex-col gap-2">
+            <div className="w-full max-w-2xl flex flex-col gap-2 anim-slide-up">
               {originData?.map((item) => (
                 <div
-                  className="surface p-4 rounded-xl flex justify-between items-center"
+                  className="surface p-4 rounded-xl flex justify-between items-center hover:opacity-95 cursor-pointer"
                   key={item.id}
+                  onClick={() => {
+                    setSelectedItem(item);
+                    setIsModalOpen(true);
+                  }}
                 >
-                  <div className="flex gap-3 items-start">
-                    <div className="text-lg">{item.place}</div>
-                    <div className="flex gap-2 subText items-center text-sm">
+                  <div className="flex flex-col gap-1 items-start">
+                    <div className="text-lg max-w-[60vw] sm:max-w-[480px] truncate">
+                      {item.place}
+                    </div>
+                    <div className="flex gap-2 subText items-center text-sm flex-nowrap">
                       <div>{dayjs(item.date).format('YY.M.DD')}</div>
                       <div>
                         {dayjs(
@@ -298,7 +331,7 @@ export default function Home({ date, setDate }: HomeProps) {
                         ).format('HH:mm')}
                       </div>
                       <div
-                        className={`rounded-full ${
+                        className={`rounded-full whitespace-nowrap ${
                           item.confirmType === '승인' ? 'opposite' : 'redBox'
                         } text-[10px] px-2 py-[2px]`}
                       >
@@ -313,65 +346,234 @@ export default function Home({ date, setDate }: HomeProps) {
               ))}
             </div>
           )}
+          {showStats && (
+            <div className="w-full max-w-2xl flex flex-col gap-4 anim-slide-up">
+              <div className="surface rounded-2xl p-3 flex justify-center">
+                <div className="flex items-center gap-2 text-sm">
+                  <button
+                    className={`tabItem ${
+                      statsUserOnly ? 'tabItemActive' : ''
+                    }`}
+                    onClick={() => setStatsUserOnly(true)}
+                  >
+                    내 통계
+                  </button>
+                  <div className="divider w-px h-5" />
+                  <button
+                    className={`tabItem ${
+                      !statsUserOnly ? 'tabItemActive' : ''
+                    }`}
+                    onClick={() => setStatsUserOnly(false)}
+                  >
+                    전체 통계
+                  </button>
+                </div>
+              </div>
+              <div className="surface rounded-2xl p-4">
+                <div className="text-lg font-semibold mb-2">
+                  최다 방문 Top 5
+                </div>
+                <div className="flex flex-col gap-2">
+                  {top5Stats.map((s) => (
+                    <div
+                      key={`top-${s.place}`}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="text-sm truncate w-32 sm:w-48">
+                        {s.place}
+                      </div>
+                      <div className="flex-1 h-3 surface rounded-full overflow-hidden">
+                        <div
+                          className="h-full opposite rounded-full"
+                          style={{
+                            width: `${(s.count / maxPlaceCount) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="w-10 text-right text-sm">{s.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="surface rounded-2xl p-4">
+                <div className="text-lg font-semibold mb-2">
+                  최소 방문 Top 5
+                </div>
+                <div className="flex flex-col gap-2">
+                  {bottom5Stats.map((s) => (
+                    <div
+                      key={`bottom-${s.place}`}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="text-sm truncate w-32 sm:w-48">
+                        {s.place}
+                      </div>
+                      <div className="flex-1 h-3 surface rounded-full overflow-hidden">
+                        <div
+                          className="h-full opposite rounded-full"
+                          style={{
+                            width: `${(s.count / maxPlaceCount) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="w-10 text-right text-sm">{s.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="surface rounded-2xl p-4">
+                <div className="text-lg font-semibold mb-2">전체 목록</div>
+                <div className="flex flex-col gap-2">
+                  {placeStats.map((s) => (
+                    <div
+                      key={`all-${s.place}`}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="text-sm truncate w-32 sm:w-48">
+                        {s.place}
+                      </div>
+                      <div className="flex-1 h-3 surface rounded-full overflow-hidden">
+                        <div
+                          className="h-full opposite rounded-full"
+                          style={{
+                            width: `${(s.count / maxPlaceCount) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="w-10 text-right text-sm">{s.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {placeStats.length === 0 && (
+                <div className="subText">데이터가 없습니다.</div>
+              )}
+            </div>
+          )}
+          {!!selectedItem && (
+            <div
+              className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 transition-opacity duration-200 ${
+                isModalOpen ? 'opacity-100' : 'opacity-0'
+              }`}
+              onClick={() => {
+                setIsModalOpen(false);
+                setTimeout(() => setSelectedItem(null), 200);
+              }}
+            >
+              <div
+                className={`surface w-full sm:w-auto max-w-md sm:rounded-2xl rounded-t-2xl p-5 m-0 sm:m-4 transition-all duration-200 ${
+                  isModalOpen
+                    ? 'translate-y-0 opacity-100'
+                    : 'translate-y-3 opacity-0'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="text-xl font-bold mb-2 truncate">
+                  {selectedItem.place}
+                </div>
+                <div className="subText text-sm mb-3 flex gap-3 items-center flex-wrap">
+                  <span>{dayjs(selectedItem.date).format('YYYY.MM.DD')}</span>
+                  <span>
+                    {dayjs(
+                      selectedItem.date + selectedItem.time,
+                      'YYYY-MM-DDHH:mm:ss'
+                    ).format('HH:mm')}
+                  </span>
+                  <span
+                    className={`rounded-full whitespace-nowrap ${
+                      selectedItem.confirmType === '승인'
+                        ? 'opposite'
+                        : 'redBox'
+                    } text-[10px] px-2 py-[2px]`}
+                  >
+                    {selectedItem.confirmType}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="subText">결제 금액</div>
+                  <div className="text-lg font-semibold">
+                    {`${parseInt(selectedItem.fee).toLocaleString('ko-kr')}원`}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="subText">카드번호</div>
+                  <div className="text-sm">{selectedItem.cardNumber}</div>
+                </div>
+                <div className="flex justify-between items-center mb-0">
+                  <div className="subText">사용자</div>
+                  <div className="text-sm">{selectedItem.user}</div>
+                </div>
+                {/* 배경 클릭으로 닫힘 */}
+              </div>
+            </div>
+          )}
           <div className="h-10" />
         </div>
-        <div className="fixed left-0 right-0 bottomNav px-2 glass glassBorderX">
-          <div className="max-w-2xl mx-auto px-6 py-3 grid grid-cols-3 gap-6 rounded-full surface">
+        <div className="fixed left-0 right-0 bottomNav px-2">
+          <div className="max-w-2xl mx-auto px-4 py-2 grid grid-cols-4 gap-3 rounded-full surface">
             <button
-              className={`button w-full ${showDetail ? 'opposite' : ''}`}
+              className={`tabItem w-full ${showDetail ? 'tabItemActive' : ''}`}
               onClick={() => {
+                setSavedScrollTop(
+                  typeof window !== 'undefined' ? window.scrollY : 0
+                );
                 setShowList(false);
+                setShowStats(false);
                 setShowDetail((v) => !v);
+                if (typeof window !== 'undefined') {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
               }}
             >
-              <div className="flex flex-col items-center text-xs">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-5 h-5"
-                >
-                  <path d="M12 3C7 3 2.73 7.11 2 12c.73 4.89 5 9 10 9s9.27-4.11 10-9c-.73-4.89-5-9-10-9Zm0 16a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" />
-                </svg>
-                <span>상세 정보</span>
+              <div className="flex items-center gap-1 text-xs">
+                <Info className="w-5 h-5" />
               </div>
             </button>
             <button
-              className={`button w-full ${showList ? 'opposite' : ''}`}
+              className={`tabItem w-full ${showList ? 'tabItemActive' : ''}`}
               onClick={() => {
+                setSavedScrollTop(
+                  typeof window !== 'undefined' ? window.scrollY : 0
+                );
                 setShowDetail(false);
+                setShowStats(false);
                 setShowList((v) => !v);
+                if (typeof window !== 'undefined') {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
               }}
             >
-              <div className="flex flex-col items-center text-xs">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-5 h-5"
-                >
-                  <path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z" />
-                </svg>
-                <span>상세 내역</span>
+              <div className="flex items-center gap-1 text-xs">
+                <List className="w-5 h-5" />
               </div>
             </button>
             <button
-              className="button w-full"
+              className={`tabItem w-full ${showStats ? 'tabItemActive' : ''}`}
+              onClick={() => {
+                setSavedScrollTop(
+                  typeof window !== 'undefined' ? window.scrollY : 0
+                );
+                setShowDetail(false);
+                setShowList(false);
+                setShowStats((v) => !v);
+                if (typeof window !== 'undefined') {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+            >
+              <div className="flex items-center gap-1 text-xs">
+                <BarChart2 className="w-5 h-5" />
+              </div>
+            </button>
+            <button
+              className="tabItem w-full"
               onClick={() => {
                 window.localStorage.removeItem('loginInfo');
                 setHasSession(false);
               }}
             >
-              <div className="flex flex-col items-center text-xs">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-5 h-5"
-                >
-                  <path d="M13 3h-2v10h2V3Zm-1 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-                </svg>
-                <span>로그아웃</span>
+              <div className="flex items-center gap-1 text-xs">
+                <LogOut className="w-5 h-5" />
               </div>
             </button>
           </div>

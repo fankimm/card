@@ -6,6 +6,7 @@ import {
   BarChart2,
   ChevronLeft,
   ChevronRight,
+  Moon,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
@@ -510,7 +511,7 @@ export default function Home({ date, setDate }: HomeProps) {
           <div className="h-10" />
         </div>
         <div className="fixed left-0 right-0 bottomNav px-2">
-          <div className="max-w-2xl mx-auto px-4 py-2 grid grid-cols-4 gap-3 rounded-full surface">
+          <div className="max-w-2xl mx-auto px-4 py-2 grid grid-cols-5 gap-3 rounded-full surface">
             <button
               className={`tabItem w-full ${showDetail ? 'tabItemActive' : ''}`}
               onClick={() => {
@@ -574,6 +575,25 @@ export default function Home({ date, setDate }: HomeProps) {
             >
               <div className="flex items-center gap-1 text-xs">
                 <LogOut className="w-5 h-5" />
+              </div>
+            </button>
+            <button
+              className="tabItem w-full"
+              onClick={() => {
+                const current =
+                  document.documentElement.getAttribute('data-theme');
+                const next = current === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute(
+                  'data-theme',
+                  next || 'dark'
+                );
+                try {
+                  localStorage.setItem('theme', next || 'dark');
+                } catch {}
+              }}
+            >
+              <div className="flex items-center gap-1 text-xs">
+                <Moon className="w-5 h-5" />
               </div>
             </button>
           </div>

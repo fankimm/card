@@ -18,6 +18,21 @@
   --background-rgb-sub: var(--bg-elev);
 }
 
+/* Light theme overrides */
+[data-theme='light'] {
+  --bg: 248, 248, 248;
+  --bg-elev: 255, 255, 255;
+  --fg: 17, 17, 17;
+  --fg-sub: 100, 100, 100;
+  --accent: 0, 0, 0;
+  --border: 220, 220, 220;
+
+  --foreground-rgb: var(--fg);
+  --foreground-rgb-sub: var(--fg-sub);
+  --background-rgb: var(--bg);
+  --background-rgb-sub: var(--bg-elev);
+}
+
 /* Always dark theme like Threads */
 
 body {
@@ -80,7 +95,7 @@ body {
 
 /* iOS safe-area friendly bottom nav offset */
 .bottomNav {
-  bottom: calc(env(safe-area-inset-bottom) + 12px);
+  bottom: calc(env(safe-area-inset-bottom) + 24px);
 }
 
 /* Glassmorphism helpers */
@@ -143,6 +158,25 @@ body {
 }
 .anim-slide-up {
   animation: slideFadeUp 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Dev-only iPhone home indicator mock */
+.dev-home-indicator {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 6px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 30;
+}
+.dev-home-indicator .bar {
+  width: 120px;
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
 }
 .glassBorder {
   border: 1px solid rgba(var(--border), 0.6);

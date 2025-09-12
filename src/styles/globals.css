@@ -3,20 +3,22 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --foreground-rgb-sub: 150, 150, 150;
-  --background-rgb: 255, 255, 255;
-  --background-rg-sub: 214, 219, 220;
+  /* Threads-like tokens */
+  --bg: 16, 16, 16; /* near-black */
+  --bg-elev: 28, 28, 28; /* elevated surface */
+  --fg: 245, 245, 245; /* primary text */
+  --fg-sub: 160, 160, 160; /* secondary text */
+  --accent: 255, 255, 255; /* white accent */
+  --border: 48, 48, 48;
+
+  /* Backward compat */
+  --foreground-rgb: var(--fg);
+  --foreground-rgb-sub: var(--fg-sub);
+  --background-rgb: var(--bg);
+  --background-rgb-sub: var(--bg-elev);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --foreground-rgb-sub: 180, 180, 180;
-    --background-rgb: 0, 0, 0;
-    --background-rgb-sub: 10, 10, 10;
-  }
-}
+/* Always dark theme like Threads */
 
 body {
   /* font-family: 'SF Pro KR'; 주석처리 하니까 tailwind font-weight 적용된다 */
@@ -37,9 +39,11 @@ body {
 }
 
 .button {
-  padding: 4px 8px;
-  border-radius: 16px;
+  padding: 8px 12px;
+  border-radius: 9999px;
   cursor: pointer;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg-elev));
 }
 
 .button:hover {
@@ -48,17 +52,30 @@ body {
 }
 
 .opposite {
-  color: rgb(var(--background-rgb));
-  background: rgb(var(--foreground-rgb));
+  color: rgb(var(--bg));
+  background: rgb(var(--accent));
 }
 
 .redBox {
   color: white;
-  background: red;
+  background: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .subText {
   color: rgb(var(--foreground-rgb-sub));
+}
+
+/* Threads-like containers */
+.surface {
+  background: rgb(var(--bg-elev));
+  border: 1px solid rgb(var(--border));
+  border-radius: 16px;
+}
+
+.divider {
+  height: 1px;
+  background: rgb(var(--border));
 }
 
 @layer utilities {

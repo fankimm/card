@@ -65,7 +65,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const scrollToTopFast = useCallback(() => {
     if (typeof window === 'undefined') return;
     const startY = window.scrollY || window.pageYOffset;
-    const duration = 350; // 약 30% 더 빠르게
+    const duration = 100; // 더 빠르게
     const startTime = performance.now();
     const easeOutQuad = (t: number) => t * (2 - t);
     const step = (now: number) => {
@@ -79,6 +79,7 @@ export default function Home({ date, setDate }: HomeProps) {
     requestAnimationFrame(step);
   }, []);
 
+  const [toast, setToast] = useState<string | null>(null);
   const copyMonthDataToClipboard = useCallback(async () => {
     if (process.env.NODE_ENV !== 'development') return;
     try {
@@ -104,8 +105,12 @@ export default function Home({ date, setDate }: HomeProps) {
         document.body.removeChild(ta);
       }
       console.log('월 데이터가 클립보드에 복사되었습니다.');
+      setToast('월 데이터가 클립보드에 복사되었습니다.');
+      setTimeout(() => setToast(null), 1500);
     } catch (err) {
       console.error(err);
+      setToast('복사 실패. 콘솔을 확인하세요.');
+      setTimeout(() => setToast(null), 1500);
     }
   }, [date, originData, total, totalLength]);
 
@@ -576,6 +581,7 @@ export default function Home({ date, setDate }: HomeProps) {
           )}
           <div className="h-10" />
         </div>
+        {toast && <div className="toast anim-fade">{toast}</div>}
         <div className="fixed left-0 right-0 bottomNav px-2">
           <div className="max-w-2xl mx-auto px-4 py-2 grid grid-cols-5 gap-3 rounded-full surface">
             <button

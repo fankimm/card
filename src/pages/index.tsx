@@ -352,6 +352,9 @@ export default function Home({ date, setDate }: HomeProps) {
   const [남은일수, set남은일수] = useState<number | undefined>(undefined);
   const [allData, setAllData] = useState<IOriginData[] | undefined>(undefined);
   const [homeHeaderIntro, setHomeHeaderIntro] = useState(false);
+  const [aiInsightText, setAiInsightText] = useState<string | null>(null);
+  const [aiInsightLoading, setAiInsightLoading] = useState(false);
+  const [aiInsightKey, setAiInsightKey] = useState<string | null>(null);
   const router = useRouter();
 
   // Stable monthly tagline selection (no flicker on re-render)
@@ -793,6 +796,22 @@ export default function Home({ date, setDate }: HomeProps) {
 
     return result;
   }, [allData, statsUserOnly, date]);
+
+  // AI 인사이트 비활성화 (요청에 따라 주석 처리)
+  // useEffect(() => {
+  //   if (!showStats) return;
+  //   const key = `${dayjs(date).format('YYYY-MM')}:${statsUserOnly ? 'me' : 'all'}`;
+  //   if (aiInsightKey === key && aiInsightText) return;
+  //   setAiInsightKey(key);
+  //   setAiInsightLoading(true);
+  //   setAiInsightText(null);
+  //   const payload = { month: dayjs(date).format('YYYY-MM') } as any;
+  //   fetch('/api/ai-insights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+  //     .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+  //     .then((d) => { if (d?.text) setAiInsightText(String(d.text)); })
+  //     .catch(() => {})
+  //     .finally(() => setAiInsightLoading(false));
+  // }, [showStats, date, statsUserOnly, insights, aiInsightKey, aiInsightText]);
   useEffect(() => {
     // 홈 탭 진입시 2초간 비홈 헤더 형태(삼성점자) 보여주고 월 네비게이터로 전환
     if (showHome) {
@@ -1247,6 +1266,14 @@ export default function Home({ date, setDate }: HomeProps) {
               <div className="surface rounded-2xl p-4">
                 <div className="text-lg font-semibold mb-2">인사이트</div>
                 <div className="flex flex-col gap-2 text-sm">
+                  {aiInsightLoading && (
+                    <div className="subText">AI 인사이트 생성 중…</div>
+                  )}
+                  {aiInsightText && (
+                    <div className="text-left whitespace-pre-wrap subText">
+                      {aiInsightText}
+                    </div>
+                  )}
                   {insights.weekdayLines.map((t, i) => (
                     <div key={`weekday-${i}`} className="subText">
                       {t}

@@ -1,13 +1,13 @@
 {
-  "name": "MYCOMPANY 사용내역",
-  "short_name": "법카사용내역",
+  "name": "삼성점자",
+  "short_name": "삼성점자",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#101010",
   "theme_color": "#101010",
   "icons": [
     {
-      "src": "256.png",
+      "src": "logo.png",
       "type": "image/png",
       "sizes": "256x256"
     }

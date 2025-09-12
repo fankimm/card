@@ -1,13 +1,15 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   LogOut,
-  Info,
-  List,
   BarChart2,
   ChevronLeft,
   ChevronRight,
   Moon,
+  Home as HomeIcon,
+  Utensils,
 } from 'lucide-react';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import AdBanner from '@/components/AdBanner';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import Login from '@/components/login';
@@ -27,7 +29,96 @@ export interface IOriginData {
   place: string;
 }
 
+function Recommend({
+  allData,
+  date,
+}: {
+  allData?: IOriginData[];
+  date: string;
+}) {
+  if (!allData || allData.length === 0) {
+    return (
+      <div className="subText">데이터가 없어 추천을 생성할 수 없어요.</div>
+    );
+  }
+  const thisMonth = allData.filter((i) =>
+    dayjs(i.date).isSame(dayjs(date), 'month')
+  );
+  const lunchWindow = thisMonth.filter(
+    (i) => i.time > '10:00:00' && i.time < '16:00:00'
+  );
+  const map = new Map<string, { count: number; last: string; total: number }>();
+  lunchWindow.forEach((i) => {
+    const key = i.place || '기타';
+    const prev = map.get(key) || { count: 0, last: '1970-01-01', total: 0 };
+    map.set(key, {
+      count: prev.count + 1,
+      last: dayjs(i.date).isAfter(prev.last) ? i.date : prev.last,
+      total: prev.total + parseInt(i.fee as any, 10) || 0,
+    });
+  });
+  const items = Array.from(map.entries()).map(([place, v]) => ({
+    place,
+    ...v,
+  }));
+  if (items.length === 0) {
+    return <div className="subText">이번 달 데이터가 부족해요.</div>;
+  }
+  // 간단한 점수: 적당한 빈도(2~4회) + 최근 방문 X + 총액 적당
+  const scored = items.map((it) => {
+    const freqScore = Math.max(0, 5 - Math.abs(it.count - 3));
+    const recencyPenalty = Math.min(
+      3,
+      dayjs().diff(dayjs(it.last), 'day') < 3 ? 3 : 0
+    );
+    const spendModerate = Math.max(
+      0,
+      5 - Math.abs(it.total / it.count - 12000) / 3000
+    );
+    const score = freqScore + spendModerate - recencyPenalty;
+    return { ...it, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  const reason = `최근 ${dayjs(
+    best.last
+  ).fromNow()}에 방문했고, 평균 ${Math.round(
+    best.total / best.count
+  ).toLocaleString('ko-KR')}원으로 적당하며, 이번 달 ${
+    best.count
+  }회 방문했어요.`;
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xl font-bold">오늘의 점심 추천</div>
+          <div className="text-2xl mt-1">{best.place}</div>
+          <div className="subText text-sm mt-2">{reason}</div>
+        </div>
+      </div>
+      <div className="divider my-4" />
+      <a
+        href="https://map.naver.com"
+        target="_blank"
+        rel="noreferrer"
+        className="block"
+      >
+        <div className="surface rounded-xl p-3 flex items-center justify-between">
+          <div>
+            <div className="subText text-xs">스폰서</div>
+            <div className="text-sm sm:text-base font-semibold">
+              근처 맛집 혜택 보러가기
+            </div>
+          </div>
+          <div className="button opposite text-xs">바로가기</div>
+        </div>
+      </a>
+    </div>
+  );
+}
+
 export default function Home({ date, setDate }: HomeProps) {
+  dayjs.extend(relativeTime);
   const monthName = [
     'JANUARY',
     'FEBURARY',
@@ -54,6 +145,8 @@ export default function Home({ date, setDate }: HomeProps) {
   const [selectedItem, setSelectedItem] = useState<IOriginData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showHome, setShowHome] = useState(true);
+  const [showRecommend, setShowRecommend] = useState(false);
   const [statsUserOnly, setStatsUserOnly] = useState(true);
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
@@ -287,26 +380,28 @@ export default function Home({ date, setDate }: HomeProps) {
           </div>
         </div>
         <div className="max-w-2xl mx-auto px-4 mt-3 sm:mt-4 flex flex-col items-center text-center gap-6 pb-24">
-          <div
-            className={`surface w-full max-w-md p-6 rounded-2xl ${
-              process.env.NODE_ENV === 'development' ? 'cursor-copy' : ''
-            }`}
-            onClick={() => {
-              if (process.env.NODE_ENV === 'development') {
-                copyMonthDataToClipboard();
-              }
-            }}
-          >
-            <div className="subText text-2xl font-light">총 사용금액</div>
-            {loading ? (
-              'LOADING...'
-            ) : (
-              <div className="text-4xl font-semibold mb-4">{`₩${total?.toLocaleString(
-                'ko-KR'
-              )}`}</div>
-            )}
-          </div>
-          {showDetail && (
+          {showHome && (
+            <div
+              className={`surface w-full max-w-md p-6 rounded-2xl ${
+                process.env.NODE_ENV === 'development' ? 'cursor-copy' : ''
+              }`}
+              onClick={() => {
+                if (process.env.NODE_ENV === 'development') {
+                  copyMonthDataToClipboard();
+                }
+              }}
+            >
+              <div className="subText text-2xl font-light">총 사용금액</div>
+              {loading ? (
+                'LOADING...'
+              ) : (
+                <div className="text-4xl font-semibold mb-4">{`₩${total?.toLocaleString(
+                  'ko-KR'
+                )}`}</div>
+              )}
+            </div>
+          )}
+          {showHome && (
             <div className="surface w-full max-w-md p-6 rounded-2xl flex flex-col gap-6 anim-slide-up">
               <div>
                 <div className="subText text-2xl font-light">총 사용건수</div>
@@ -374,7 +469,7 @@ export default function Home({ date, setDate }: HomeProps) {
               </div>
             </div>
           )}
-          {showList && (
+          {showHome && (
             <div className="w-full max-w-2xl flex flex-col gap-2 anim-slide-up">
               {originData?.map((item) => (
                 <div
@@ -419,6 +514,16 @@ export default function Home({ date, setDate }: HomeProps) {
                   >{`${parseInt(item.fee).toLocaleString('ko-kr')}원`}</div>
                 </div>
               ))}
+            </div>
+          )}
+          {showRecommend && (
+            <div className="w-full max-w-2xl flex flex-col gap-3 anim-slide-up">
+              <div className="surface rounded-2xl p-4">
+                <Recommend allData={allData} date={date} />
+              </div>
+              <div className="surface rounded-2xl p-2">
+                <AdBanner slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT || ''} />
+              </div>
             </div>
           )}
           {showStats && (
@@ -588,42 +693,44 @@ export default function Home({ date, setDate }: HomeProps) {
         <div className="fixed left-0 right-0 bottom-0 glass glassSolid pb-[calc(env(safe-area-inset-bottom)+16px)]">
           <div className="w-full px-0 py-2 grid grid-cols-5 gap-0">
             <button
-              className={`tabItem w-full ${showDetail ? 'tabItemActive' : ''}`}
+              className={`tabItem w-full ${showHome ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setShowList(false);
+                setShowHome(true);
                 setShowStats(false);
-                setShowDetail((v) => !v);
+                setShowRecommend(false);
                 scrollToTopFast();
               }}
             >
               <div className="flex items-center gap-1 text-xs">
-                <Info className="w-5 h-5" />
-              </div>
-            </button>
-            <button
-              className={`tabItem w-full ${showList ? 'tabItemActive' : ''}`}
-              onClick={() => {
-                setShowDetail(false);
-                setShowStats(false);
-                setShowList((v) => !v);
-                scrollToTopFast();
-              }}
-            >
-              <div className="flex items-center gap-1 text-xs">
-                <List className="w-5 h-5" />
+                <HomeIcon className="w-5 h-5" />
               </div>
             </button>
             <button
               className={`tabItem w-full ${showStats ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setShowDetail(false);
-                setShowList(false);
-                setShowStats((v) => !v);
+                setShowHome(false);
+                setShowRecommend(false);
+                setShowStats(true);
                 scrollToTopFast();
               }}
             >
               <div className="flex items-center gap-1 text-xs">
                 <BarChart2 className="w-5 h-5" />
+              </div>
+            </button>
+            <button
+              className={`tabItem w-full ${
+                showRecommend ? 'tabItemActive' : ''
+              }`}
+              onClick={() => {
+                setShowHome(false);
+                setShowStats(false);
+                setShowRecommend(true);
+                scrollToTopFast();
+              }}
+            >
+              <div className="flex items-center gap-1 text-xs">
+                <Utensils className="w-5 h-5" />
               </div>
             </button>
             <button

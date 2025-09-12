@@ -1,0 +1,45 @@
+import { useEffect } from 'react';
+
+declare global {
+  interface Window {
+    adsbygoogle: any[];
+  }
+}
+
+interface AdBannerProps {
+  slotId: string;
+  layout?: 'in-article' | 'responsive';
+}
+
+export default function AdBanner({
+  slotId,
+  layout = 'responsive',
+}: AdBannerProps) {
+  const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
+
+  useEffect(() => {
+    if (!client || !slotId) return;
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch {}
+  }, [client, slotId]);
+
+  if (!client || !slotId) {
+    return (
+      <div className="surface rounded-xl p-4 subText text-sm">
+        광고 영역 (클라이언트/슬롯 ID가 설정되지 않았습니다)
+      </div>
+    );
+  }
+
+  return (
+    <ins
+      className="adsbygoogle block"
+      style={{ display: 'block' }}
+      data-ad-client={client}
+      data-ad-slot={slotId}
+      data-ad-format={layout}
+      data-full-width-responsive="true"
+    />
+  );
+}

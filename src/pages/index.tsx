@@ -62,6 +62,53 @@ export default function Home({ date, setDate }: HomeProps) {
   const [allData, setAllData] = useState<IOriginData[] | undefined>(undefined);
   const router = useRouter();
 
+  const scrollToTopFast = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const startY = window.scrollY || window.pageYOffset;
+    const duration = 350; // 약 30% 더 빠르게
+    const startTime = performance.now();
+    const easeOutQuad = (t: number) => t * (2 - t);
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = easeOutQuad(t);
+      const nextY = Math.max(0, Math.round(startY * (1 - eased)));
+      window.scrollTo(0, nextY);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, []);
+
+  const copyMonthDataToClipboard = useCallback(async () => {
+    if (process.env.NODE_ENV !== 'development') return;
+    try {
+      const payload = {
+        month: dayjs(date).format('YYYY-MM'),
+        user:
+          typeof window !== 'undefined'
+            ? window.localStorage.getItem('loginInfo')
+            : undefined,
+        total,
+        totalLength,
+        items: originData || [],
+      };
+      const text = JSON.stringify(payload, null, 2);
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      console.log('월 데이터가 클립보드에 복사되었습니다.');
+    } catch (err) {
+      console.error(err);
+    }
+  }, [date, originData, total, totalLength]);
+
   const handleSearch = useCallback(() => {
     setLoading(true);
     fetch(
@@ -108,10 +155,12 @@ export default function Home({ date, setDate }: HomeProps) {
 
       handleSearch();
       setHasSession(true);
+      // 탭 전환 외에도 월 변경 시 상단으로 스크롤 이동
+      scrollToTopFast();
     } else {
       setHasSession(false);
     }
-  }, [date, handleSearch]);
+  }, [date, handleSearch, scrollToTopFast]);
   useEffect(() => {
     if (!출근일) return;
     const 오늘먹음 = originData?.some(
@@ -230,7 +279,16 @@ export default function Home({ date, setDate }: HomeProps) {
           </div>
         </div>
         <div className="max-w-2xl mx-auto px-4 mt-3 sm:mt-4 flex flex-col items-center text-center gap-6 pb-24">
-          <div className="surface w-full max-w-md p-6 rounded-2xl">
+          <div
+            className={`surface w-full max-w-md p-6 rounded-2xl ${
+              process.env.NODE_ENV === 'development' ? 'cursor-copy' : ''
+            }`}
+            onClick={() => {
+              if (process.env.NODE_ENV === 'development') {
+                copyMonthDataToClipboard();
+              }
+            }}
+          >
             <div className="subText text-2xl font-light">총 사용금액</div>
             {loading ? (
               'LOADING...'
@@ -320,7 +378,13 @@ export default function Home({ date, setDate }: HomeProps) {
                   }}
                 >
                   <div className="flex flex-col gap-1 items-start">
-                    <div className="text-lg max-w-[60vw] sm:max-w-[480px] truncate">
+                    <div
+                      className={`text-lg max-w-[60vw] sm:max-w-[480px] truncate ${
+                        item.confirmType === '취소'
+                          ? 'line-through subText'
+                          : ''
+                      }`}
+                    >
                       {item.place}
                     </div>
                     <div className="flex gap-2 subText items-center text-sm flex-nowrap">
@@ -340,9 +404,11 @@ export default function Home({ date, setDate }: HomeProps) {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right text-lg font-semibold">
-                    {`${parseInt(item.fee).toLocaleString('ko-kr')}원`}
-                  </div>
+                  <div
+                    className={`text-right text-lg font-semibold ${
+                      item.confirmType === '취소' ? 'line-through subText' : ''
+                    }`}
+                  >{`${parseInt(item.fee).toLocaleString('ko-kr')}원`}</div>
                 </div>
               ))}
             </div>
@@ -462,7 +528,7 @@ export default function Home({ date, setDate }: HomeProps) {
               }}
             >
               <div
-                className={`surface w-full sm:w-auto max-w-md sm:rounded-2xl rounded-t-2xl p-5 m-0 sm:m-4 transition-all duration-200 ${
+                className={`surface w-full sm:w-auto max-w-md sm:rounded-2xl rounded-t-2xl px-5 pt-5 safeAreaPB m-0 sm:m-4 transition-all duration-200 ${
                   isModalOpen
                     ? 'translate-y-0 opacity-100'
                     : 'translate-y-3 opacity-0'
@@ -521,9 +587,7 @@ export default function Home({ date, setDate }: HomeProps) {
                 setShowList(false);
                 setShowStats(false);
                 setShowDetail((v) => !v);
-                if (typeof window !== 'undefined') {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
+                scrollToTopFast();
               }}
             >
               <div className="flex items-center gap-1 text-xs">
@@ -539,9 +603,7 @@ export default function Home({ date, setDate }: HomeProps) {
                 setShowDetail(false);
                 setShowStats(false);
                 setShowList((v) => !v);
-                if (typeof window !== 'undefined') {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
+                scrollToTopFast();
               }}
             >
               <div className="flex items-center gap-1 text-xs">
@@ -557,9 +619,7 @@ export default function Home({ date, setDate }: HomeProps) {
                 setShowDetail(false);
                 setShowList(false);
                 setShowStats((v) => !v);
-                if (typeof window !== 'undefined') {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
+                scrollToTopFast();
               }}
             >
               <div className="flex items-center gap-1 text-xs">

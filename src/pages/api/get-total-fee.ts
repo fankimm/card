@@ -52,7 +52,7 @@ export default async function handler(
   const user = req.query.name as string;
   const data = (global as unknown as NodeJS.Global).cachedData as Data[];
   const 전체데이터 = data;
-  const 정제된데이터 = data
+  const 리스트데이터 = data
     ?.map((item) => {
       if (item.confirmType === '취소') {
         return {
@@ -67,18 +67,20 @@ export default async function handler(
       return dayjs(item.date).isSame(dayjs(date), 'month');
     })
     .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
-    .filter((item) => parseInt(item.fee.toString(), 0) <= 20000)
-    .filter((item) => item.confirmType !== '취소');
-  const total = 정제된데이터.reduce(
+    .filter((item) => parseInt(item.fee.toString(), 0) <= 20000);
+  const 집계용데이터 = 리스트데이터.filter(
+    (item) => item.confirmType !== '취소'
+  );
+  const total = 집계용데이터.reduce(
     (a, b) => a + parseInt(b.fee.toString()),
     0
   );
-  const totalLength = 정제된데이터.length;
+  const totalLength = 집계용데이터.length;
   res.status(200).json({
     message: '성공',
     data: total,
     length: totalLength,
-    originData: 정제된데이터,
+    originData: 리스트데이터,
     allData: 전체데이터,
   });
 

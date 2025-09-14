@@ -24,7 +24,6 @@ import SeasonalEffect from '@/components/SeasonalEffect';
 import HeatHaze from '@/components/HeatHaze';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
-import Login from '@/components/login';
 interface HomeProps {
   date: string;
   setDate: Function;
@@ -345,7 +344,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const [showStats, setShowStats] = useState(false);
   const [showHome, setShowHome] = useState(true);
   const [showRecommend, setShowRecommend] = useState(false);
-  const [statsUserOnly, setStatsUserOnly] = useState(true);
+  const [statsUserOnly, setStatsUserOnly] = useState(false);
   const [showAllList, setShowAllList] = useState(false);
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
@@ -1179,7 +1178,14 @@ export default function Home({ date, setDate }: HomeProps) {
                     className={`tabItem ${
                       statsUserOnly ? 'tabItemActive' : ''
                     }`}
-                    onClick={() => setStatsUserOnly(true)}
+                    onClick={() => {
+                      const loginInfo = window.localStorage.getItem('loginInfo');
+                      if (!loginInfo) {
+                        router.push('/login');
+                        return;
+                      }
+                      setStatsUserOnly(true);
+                    }}
                   >
                     내 통계
                   </button>
@@ -1599,5 +1605,292 @@ export default function Home({ date, setDate }: HomeProps) {
       </div>
     );
   }
-  return <Login />;
+  
+  // 로그인되지 않은 경우 가상 데이터로 홈 화면 표시
+  if (!hasSession) {
+    return (
+      <div className="min-h-screen">
+        <div className="sticky top-0 z-20 glass glassSolid px-2">
+          <div className="max-w-2xl mx-auto h-16 flex items-center">
+            <div className="px-3 w-full flex items-center justify-between gap-2">
+              <button
+                className="tabItem"
+                onClick={() => {
+                  setDate(
+                    dayjs(date).subtract(1, 'month').format('YYYY-MM-DD')
+                  );
+                }}
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex-1 text-center anim-soft">
+                <div
+                  className="hover:cursor-pointer text-red text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight"
+                  onClick={() => {
+                    setDate(dayjs().format('YYYY-MM-DD'));
+                  }}
+                >
+                  {(() => {
+                    const m = parseInt(dayjs(date).format('M'), 10);
+                    const buckets: Record<string, string[]> = {
+                      spring: ['🌸', '🌷', '🌿', '🍀'],
+                      summer: ['☀️', '🌊', '🍉', '🧊'],
+                      autumn: ['🍁', '🍂', '🎃', '🧣'],
+                      winter: ['❄️', '⛄️', '🎄', '🔥'],
+                    };
+                    const season =
+                      m >= 3 && m <= 5
+                        ? 'spring'
+                        : m >= 6 && m <= 8
+                        ? 'summer'
+                        : m >= 9 && m <= 11
+                        ? 'autumn'
+                        : 'winter';
+                    const arr = buckets[season];
+                    const key = `${dayjs(date).format('YYYY-MM')}-${season}`;
+                    const hash = Array.from(key).reduce(
+                      (h, ch) => (h << 5) - h + ch.charCodeAt(0),
+                      0
+                    );
+                    const idx = Math.abs(hash) % arr.length;
+                    const pick = arr[idx];
+                    return (
+                      <>
+                        <Twemoji emoji={pick} size={20} className="mr-1" />
+                        {`${m}월`}
+                      </>
+                    );
+                  })()}
+                </div>
+                <div className="subText text-[10px] mt-0.5 anim-soft">
+                  {monthTagline}
+                </div>
+              </div>
+              <button
+                className={`tabItem ${
+                  dayjs(date).isSame(dayjs(), 'month')
+                    ? 'opacity-50 pointer-events-none'
+                    : ''
+                }`}
+                disabled={dayjs(date).isSame(dayjs(), 'month')}
+                onClick={() => {
+                  setDate(dayjs(date).add(1, 'month').format('YYYY-MM-DD'));
+                }}
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 mt-3 sm:mt-4 flex flex-col items-center text-center gap-6 pb-24">
+          {/* 로그인 유도 배너 */}
+          <div className="surface w-full max-w-2xl p-6 rounded-2xl border-2 border-dashed border-[rgb(var(--border))]">
+            <div className="text-lg font-semibold mb-2">🍜 삼성점자 체험하기</div>
+            <div className="subText text-sm mb-4">
+              현재 가상 데이터를 보고 있습니다. 실제 데이터를 보려면 로그인해주세요!
+            </div>
+            <button
+              className="button opposite px-6 py-2 rounded-xl"
+              onClick={() => router.push('/login')}
+            >
+              로그인하기
+            </button>
+          </div>
+
+          {/* 가상 데이터 표시 */}
+          {showHome && (
+            <div className="surface w-full max-w-2xl p-6 rounded-2xl">
+              <div className="subText text-2xl font-light">총 사용금액</div>
+              <div className="text-4xl font-semibold mb-4">45,000원</div>
+            </div>
+          )}
+          
+          {showHome && (
+            <div className="surface w-full max-w-2xl p-6 rounded-2xl flex flex-col gap-6 anim-slide-up">
+              <div>
+                <div className="subText text-2xl font-light">총 사용건수</div>
+                <div className="text-4xl font-semibold mb-4">8건</div>
+              </div>
+              <div className="divider" />
+              <div>
+                <div className="subText text-2xl font-light">건당 평균 금액</div>
+                <div className="text-4xl font-semibold mb-4">5,625원</div>
+              </div>
+              <div className="divider" />
+              <div>
+                <div className="subText text-2xl font-light">남은 금액</div>
+                <div className="text-4xl font-semibold mb-4">99,000원</div>
+              </div>
+              <div className="divider" />
+              <div>
+                <div className="subText text-2xl font-light">남은 일수</div>
+                <div className="text-4xl font-semibold mb-4">15일</div>
+              </div>
+              <div className="divider" />
+              <div>
+                <div className="subText text-2xl font-light">일평균 사용 가능 금액</div>
+                <div className="text-4xl font-semibold mb-4">6,600원</div>
+              </div>
+            </div>
+          )}
+
+          {/* 가상 사용 내역 */}
+          {showHome && (
+            <div className="w-full max-w-2xl flex flex-col gap-2 anim-slide-up">
+              {[
+                { place: '김치찌개집', date: '2024-01-15', time: '12:30', fee: '8000', confirmType: '승인' },
+                { place: '돈까스집', date: '2024-01-14', time: '13:15', fee: '12000', confirmType: '승인' },
+                { place: '라면집', date: '2024-01-13', time: '12:45', fee: '6000', confirmType: '승인' },
+                { place: '치킨집', date: '2024-01-12', time: '13:00', fee: '15000', confirmType: '승인' },
+                { place: '분식집', date: '2024-01-11', time: '12:20', fee: '5000', confirmType: '승인' },
+              ].map((item, index) => (
+                <div
+                  className="surface p-4 rounded-xl flex justify-between items-center hover:opacity-95 cursor-pointer opacity-60"
+                  key={`demo-${index}`}
+                >
+                  <div className="flex flex-col gap-1 items-start">
+                    <div className="text-lg max-w-[60vw] sm:max-w-[480px] truncate">
+                      {item.place}
+                    </div>
+                    <div className="flex gap-2 subText items-center text-sm flex-nowrap">
+                      <div>{dayjs(item.date).format('YY.M.DD')}</div>
+                      <div>{item.time}</div>
+                      <div className="opposite text-[10px] px-2 py-[2px] rounded-full whitespace-nowrap">
+                        {item.confirmType}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right text-lg font-semibold">
+                    {`${parseInt(item.fee).toLocaleString('ko-kr')}원`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 통계 페이지 */}
+          {showStats && (
+            <div className="w-full max-w-2xl flex flex-col gap-4 anim-slide-up">
+              <div className="surface rounded-2xl p-3 flex justify-center">
+                <div className="flex items-center gap-2 text-sm">
+                  <button
+                    className="tabItem"
+                    onClick={() => router.push('/login')}
+                  >
+                    내 통계 (로그인 필요)
+                  </button>
+                  <div className="divider w-px h-5" />
+                  <button className="tabItem tabItemActive">
+                    전체 통계
+                  </button>
+                </div>
+              </div>
+              <div className="surface rounded-2xl p-4">
+                <div className="text-lg font-semibold mb-2">최다 방문 Top 5</div>
+                <div className="flex flex-col gap-2">
+                  {[
+                    { place: '김치찌개집', count: 15 },
+                    { place: '돈까스집', count: 12 },
+                    { place: '라면집', count: 10 },
+                    { place: '치킨집', count: 8 },
+                    { place: '분식집', count: 6 },
+                  ].map((s) => (
+                    <div key={`demo-top-${s.place}`} className="flex items-center gap-3">
+                      <div className="text-sm truncate w-32 sm:w-48">{s.place}</div>
+                      <div className="flex-1 h-3 surface rounded-full overflow-hidden">
+                        <div
+                          className="h-full opposite rounded-full"
+                          style={{ width: `${(s.count / 15) * 100}%` }}
+                        />
+                      </div>
+                      <div className="w-10 text-right text-sm">{s.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 추천 페이지 */}
+          {showRecommend && (
+            <div className="w-full max-w-2xl flex flex-col gap-3 anim-slide-up">
+              <div className="surface rounded-2xl p-4">
+                <div className="text-xl font-bold mb-4">오늘의 점심 추천</div>
+                <div className="text-center py-8">
+                  <div className="text-lg mb-4">🍜 나에게 딱 맞는 점심 추천</div>
+                  <div className="subText text-sm mb-6">
+                    로그인하면 개인 맞춤 추천을 받을 수 있어요!
+                  </div>
+                  <button
+                    className="button opposite px-6 py-3 rounded-xl"
+                    onClick={() => router.push('/login')}
+                  >
+                    로그인하고 추천받기
+                  </button>
+                </div>
+              </div>
+              <div className="surface rounded-2xl p-2">
+                <AdBanner slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT || ''} />
+              </div>
+            </div>
+          )}
+
+          <div className="h-10" />
+        </div>
+
+        {/* 하단 네비게이션 */}
+        <div className="fixed left-0 right-0 bottom-0 glass glassSolid pb-[calc(env(safe-area-inset-bottom)+16px)]">
+          <div className="w-full px-0 py-2 grid grid-cols-4 gap-0">
+            <button
+              className={`tabItem w-full ${showHome ? 'tabItemActive' : ''}`}
+              onClick={() => {
+                setShowHome(true);
+                setShowStats(false);
+                setShowRecommend(false);
+                scrollToTopFast();
+              }}
+            >
+              <div className="flex items-center gap-1 text-xs">
+                <HomeIcon className="w-5 h-5" />
+              </div>
+            </button>
+            <button
+              className={`tabItem w-full ${showStats ? 'tabItemActive' : ''}`}
+              onClick={() => {
+                setShowHome(false);
+                setShowRecommend(false);
+                setShowStats(true);
+                scrollToTopFast();
+              }}
+            >
+              <div className="flex items-center gap-1 text-xs">
+                <BarChart2 className="w-5 h-5" />
+              </div>
+            </button>
+            <button
+              className={`tabItem w-full ${showRecommend ? 'tabItemActive' : ''}`}
+              onClick={() => {
+                setShowHome(false);
+                setShowStats(false);
+                setShowRecommend(true);
+                scrollToTopFast();
+              }}
+            >
+              <div className="flex items-center gap-1 text-xs">
+                <Utensils className="w-5 h-5" />
+              </div>
+            </button>
+            <button
+              className="tabItem w-full"
+              onClick={() => router.push('/login')}
+            >
+              <div className="flex items-center gap-1 text-xs">
+                <Menu className="w-5 h-5" />
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

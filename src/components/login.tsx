@@ -13,6 +13,7 @@ const Login = () => {
           if (!name) return;
           window.localStorage.setItem('loginInfo', name);
           window.dispatchEvent(new Event('login'));
+          router.push('/');
         }}
       >
         <div className="text-xl font-extrabold tracking-tight">로그인</div>
@@ -30,6 +31,7 @@ const Login = () => {
               if (!name) return;
               window.localStorage.setItem('loginInfo', name);
               window.dispatchEvent(new Event('login'));
+              router.push('/');
             }
           }}
         />
@@ -37,6 +39,15 @@ const Login = () => {
           로그인
         </button>
       </form>
+      <div className="mt-4 text-center">
+        <div className="subText text-sm mb-2">또는</div>
+        <button
+          className="button surface w-full max-w-sm px-6 py-2 rounded-xl"
+          onClick={() => router.push('/')}
+        >
+          로그인 없이 체험하기
+        </button>
+      </div>
     </div>
   );
 };

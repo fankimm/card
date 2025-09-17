@@ -23,7 +23,7 @@ export default async function handler(
     '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n16,750원 일시불\r\n오늘은닭\r\n잔여한도: 476,000원',
     '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭',
   ];
-  const testMode = '잔여한도포함';
+  const testMode = '잔여한도포함'; // 잔여한도포함, 잔여한도미포함
   //const mes = '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭'
   const isDev = process.env.NODE_ENV === 'development';
   const mock = {
@@ -52,7 +52,7 @@ export default async function handler(
   const fee = 잔여한도포함
     ? parseWithLine[3].split(' ')[0].replaceAll('원', '')
     : parseWithLine[4].split(' ')[0].replaceAll('원', '');
-  const place = parseWithLine[5];
+  const place = 잔여한도포함 ? parseWithLine[4] : parseWithLine[5];
   console.log(
     dayjs(`${dayjs().format('YYYY')}/${date}`, 'YYYY/MM/DD HH:mm:ss').format(
       'YYYY-MM-DD'

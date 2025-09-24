@@ -224,9 +224,9 @@ function formatBeautifiedText(data) {
   let text = '';
 
   // 제목
-  text += '='.repeat(60) + '\n';
+  text += '='.repeat(10) + '\n';
   text += `                 ${data.title}\n`;
-  text += '='.repeat(60) + '\n\n';
+  text += '='.repeat(10) + '\n\n';
 
   // 기본 정보
   text += '📋 기본 정보\n';
@@ -254,7 +254,7 @@ function formatBeautifiedText(data) {
   text += '\n';
 
   // 요약
-  text += '📊 요약\n';
+  text += '* 요약\n';
   text += `  • 지급총액: ${data.summary.totalPayment}원\n`;
   text += `  • 공제총액: ${data.summary.totalDeduction}원\n`;
   text += `  • 실지급액: ${data.summary.netPayment}원\n\n`;

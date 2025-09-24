@@ -259,7 +259,7 @@ function formatBeautifiedText(data) {
   text += `  • 공제총액: ${data.summary.totalDeduction}원\n`;
   text += `  • 실지급액: ${data.summary.netPayment}원\n\n`;
 
-  text += '='.repeat(60);
+  text += '='.repeat(25);
 
   return text;
 }

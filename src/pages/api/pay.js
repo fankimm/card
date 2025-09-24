@@ -79,7 +79,7 @@ export default async function handler(req, res) {
 
     // 보기 좋게 포맷팅된 텍스트 생성
     const beautified = formatBeautifiedText(payslipData);
-
+    console.log('beautified', beautified);
     // 성공 응답
     return res.status(200).json({
       success: true,

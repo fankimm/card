@@ -76,11 +76,15 @@ export default async function handler(req, res) {
 
     // HTML 파싱
     const payslipData = parsePayslipHTML(decryptedHTML);
-    console.log('payslipData', payslipData);
+
+    // 보기 좋게 포맷팅된 텍스트 생성
+    const beautified = formatBeautifiedText(payslipData);
+
     // 성공 응답
     return res.status(200).json({
       success: true,
       data: payslipData,
+      beautified: beautified,
     });
   } catch (error) {
     console.error('Decryption error:', error);
@@ -213,4 +217,49 @@ function parsePayslipHTML(html) {
   }
 
   return result;
+}
+
+// 보기 좋게 포맷팅된 텍스트 생성 함수
+function formatBeautifiedText(data) {
+  let text = '';
+
+  // 제목
+  text += '='.repeat(60) + '\n';
+  text += `                 ${data.title}\n`;
+  text += '='.repeat(60) + '\n\n';
+
+  // 기본 정보
+  text += '📋 기본 정보\n';
+  text += `  • 회사명: ${data.basicInfo.companyName}\n`;
+  text += `  • 사원명: ${data.basicInfo.employeeName} (${data.basicInfo.employeeCode})\n`;
+  text += `  • 부서: ${data.basicInfo.department}\n`;
+  text += `  • 지급일: ${data.basicInfo.payDate}\n\n`;
+
+  // 지급 내역
+  text += '💰 지급 내역\n';
+  for (const [key, value] of Object.entries(data.payments)) {
+    if (value && value !== '' && value !== '0') {
+      text += `  • ${key}: ${value}원\n`;
+    }
+  }
+  text += '\n';
+
+  // 공제 내역
+  text += '📉 공제 내역\n';
+  for (const [key, value] of Object.entries(data.deductions)) {
+    if (value && value !== '' && value !== '0') {
+      text += `  • ${key}: ${value}원\n`;
+    }
+  }
+  text += '\n';
+
+  // 요약
+  text += '📊 요약\n';
+  text += `  • 지급총액: ${data.summary.totalPayment}원\n`;
+  text += `  • 공제총액: ${data.summary.totalDeduction}원\n`;
+  text += `  • 실지급액: ${data.summary.netPayment}원\n\n`;
+
+  text += '='.repeat(60);
+
+  return text;
 }

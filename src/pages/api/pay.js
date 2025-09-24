@@ -224,9 +224,9 @@ function formatBeautifiedText(data) {
   let text = '';
 
   // 제목
-  text += '='.repeat(10) + '\n';
-  text += `                 ${data.title}\n`;
-  text += '='.repeat(10) + '\n\n';
+  text += '='.repeat(25) + '\n';
+  text += `        ${data.title}\n`;
+  text += '='.repeat(25) + '\n\n';
 
   // 기본 정보
   text += '📋 기본 정보\n';

@@ -512,7 +512,10 @@ export default function Home({ date, setDate }: HomeProps) {
             (i) =>
               i.user &&
               i.user.trim() === loginTrim &&
-              dayjs(i.date).isSame(month, 'month')
+              dayjs(i.date).isSame(month, 'month') &&
+              i.time > '10:00:00' &&
+              i.time < '16:00:00' &&
+              parseInt(i.fee.toString(), 0) <= 20000
           );
           const approved = monthItems.filter((i) => i.confirmType !== '취소');
           const sum = approved.reduce(
@@ -540,7 +543,10 @@ export default function Home({ date, setDate }: HomeProps) {
           (i: IOriginData) =>
             i.user &&
             i.user.trim() === loginTrim &&
-            dayjs(i.date).isSame(month, 'month')
+            dayjs(i.date).isSame(month, 'month') &&
+            i.time > '10:00:00' &&
+            i.time < '16:00:00' &&
+            parseInt(i.fee.toString(), 0) <= 20000
         );
         const approved = monthItems.filter(
           (i: IOriginData) => i.confirmType !== '취소'
@@ -1179,7 +1185,8 @@ export default function Home({ date, setDate }: HomeProps) {
                       statsUserOnly ? 'tabItemActive' : ''
                     }`}
                     onClick={() => {
-                      const loginInfo = window.localStorage.getItem('loginInfo');
+                      const loginInfo =
+                        window.localStorage.getItem('loginInfo');
                       if (!loginInfo) {
                         router.push('/login');
                         return;
@@ -1605,7 +1612,7 @@ export default function Home({ date, setDate }: HomeProps) {
       </div>
     );
   }
-  
+
   // 로그인되지 않은 경우 가상 데이터로 홈 화면 표시
   if (!hasSession) {
     return (
@@ -1685,9 +1692,12 @@ export default function Home({ date, setDate }: HomeProps) {
         <div className="max-w-2xl mx-auto px-4 mt-3 sm:mt-4 flex flex-col items-center text-center gap-6 pb-24">
           {/* 로그인 유도 배너 */}
           <div className="surface w-full max-w-2xl p-6 rounded-2xl border-2 border-dashed border-[rgb(var(--border))]">
-            <div className="text-lg font-semibold mb-2">🍜 삼성점자 체험하기</div>
+            <div className="text-lg font-semibold mb-2">
+              🍜 삼성점자 체험하기
+            </div>
             <div className="subText text-sm mb-4">
-              현재 가상 데이터를 보고 있습니다. 실제 데이터를 보려면 로그인해주세요!
+              현재 가상 데이터를 보고 있습니다. 실제 데이터를 보려면
+              로그인해주세요!
             </div>
             <button
               className="button opposite px-6 py-2 rounded-xl"
@@ -1704,7 +1714,7 @@ export default function Home({ date, setDate }: HomeProps) {
               <div className="text-4xl font-semibold mb-4">45,000원</div>
             </div>
           )}
-          
+
           {showHome && (
             <div className="surface w-full max-w-2xl p-6 rounded-2xl flex flex-col gap-6 anim-slide-up">
               <div>
@@ -1713,7 +1723,9 @@ export default function Home({ date, setDate }: HomeProps) {
               </div>
               <div className="divider" />
               <div>
-                <div className="subText text-2xl font-light">건당 평균 금액</div>
+                <div className="subText text-2xl font-light">
+                  건당 평균 금액
+                </div>
                 <div className="text-4xl font-semibold mb-4">5,625원</div>
               </div>
               <div className="divider" />
@@ -1728,7 +1740,9 @@ export default function Home({ date, setDate }: HomeProps) {
               </div>
               <div className="divider" />
               <div>
-                <div className="subText text-2xl font-light">일평균 사용 가능 금액</div>
+                <div className="subText text-2xl font-light">
+                  일평균 사용 가능 금액
+                </div>
                 <div className="text-4xl font-semibold mb-4">6,600원</div>
               </div>
             </div>
@@ -1738,11 +1752,41 @@ export default function Home({ date, setDate }: HomeProps) {
           {showHome && (
             <div className="w-full max-w-2xl flex flex-col gap-2 anim-slide-up">
               {[
-                { place: '김치찌개집', date: '2024-01-15', time: '12:30', fee: '8000', confirmType: '승인' },
-                { place: '돈까스집', date: '2024-01-14', time: '13:15', fee: '12000', confirmType: '승인' },
-                { place: '라면집', date: '2024-01-13', time: '12:45', fee: '6000', confirmType: '승인' },
-                { place: '치킨집', date: '2024-01-12', time: '13:00', fee: '15000', confirmType: '승인' },
-                { place: '분식집', date: '2024-01-11', time: '12:20', fee: '5000', confirmType: '승인' },
+                {
+                  place: '김치찌개집',
+                  date: '2024-01-15',
+                  time: '12:30',
+                  fee: '8000',
+                  confirmType: '승인',
+                },
+                {
+                  place: '돈까스집',
+                  date: '2024-01-14',
+                  time: '13:15',
+                  fee: '12000',
+                  confirmType: '승인',
+                },
+                {
+                  place: '라면집',
+                  date: '2024-01-13',
+                  time: '12:45',
+                  fee: '6000',
+                  confirmType: '승인',
+                },
+                {
+                  place: '치킨집',
+                  date: '2024-01-12',
+                  time: '13:00',
+                  fee: '15000',
+                  confirmType: '승인',
+                },
+                {
+                  place: '분식집',
+                  date: '2024-01-11',
+                  time: '12:20',
+                  fee: '5000',
+                  confirmType: '승인',
+                },
               ].map((item, index) => (
                 <div
                   className="surface p-4 rounded-xl flex justify-between items-center hover:opacity-95 cursor-pointer opacity-60"
@@ -1780,13 +1824,13 @@ export default function Home({ date, setDate }: HomeProps) {
                     내 통계 (로그인 필요)
                   </button>
                   <div className="divider w-px h-5" />
-                  <button className="tabItem tabItemActive">
-                    전체 통계
-                  </button>
+                  <button className="tabItem tabItemActive">전체 통계</button>
                 </div>
               </div>
               <div className="surface rounded-2xl p-4">
-                <div className="text-lg font-semibold mb-2">최다 방문 Top 5</div>
+                <div className="text-lg font-semibold mb-2">
+                  최다 방문 Top 5
+                </div>
                 <div className="flex flex-col gap-2">
                   {[
                     { place: '김치찌개집', count: 15 },
@@ -1795,8 +1839,13 @@ export default function Home({ date, setDate }: HomeProps) {
                     { place: '치킨집', count: 8 },
                     { place: '분식집', count: 6 },
                   ].map((s) => (
-                    <div key={`demo-top-${s.place}`} className="flex items-center gap-3">
-                      <div className="text-sm truncate w-32 sm:w-48">{s.place}</div>
+                    <div
+                      key={`demo-top-${s.place}`}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="text-sm truncate w-32 sm:w-48">
+                        {s.place}
+                      </div>
                       <div className="flex-1 h-3 surface rounded-full overflow-hidden">
                         <div
                           className="h-full opposite rounded-full"
@@ -1817,7 +1866,9 @@ export default function Home({ date, setDate }: HomeProps) {
               <div className="surface rounded-2xl p-4">
                 <div className="text-xl font-bold mb-4">오늘의 점심 추천</div>
                 <div className="text-center py-8">
-                  <div className="text-lg mb-4">🍜 나에게 딱 맞는 점심 추천</div>
+                  <div className="text-lg mb-4">
+                    🍜 나에게 딱 맞는 점심 추천
+                  </div>
                   <div className="subText text-sm mb-6">
                     로그인하면 개인 맞춤 추천을 받을 수 있어요!
                   </div>
@@ -1868,7 +1919,9 @@ export default function Home({ date, setDate }: HomeProps) {
               </div>
             </button>
             <button
-              className={`tabItem w-full ${showRecommend ? 'tabItemActive' : ''}`}
+              className={`tabItem w-full ${
+                showRecommend ? 'tabItemActive' : ''
+              }`}
               onClick={() => {
                 setShowHome(false);
                 setShowStats(false);

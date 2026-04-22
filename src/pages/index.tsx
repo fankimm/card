@@ -351,6 +351,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
   const [남은일수, set남은일수] = useState<number | undefined>(undefined);
+  const [미지원출근일, set미지원출근일] = useState<string[]>([]);
   const [allData, setAllData] = useState<IOriginData[] | undefined>(undefined);
   const [homeHeaderIntro, setHomeHeaderIntro] = useState(false);
   const [aiInsightText, setAiInsightText] = useState<string | null>(null);
@@ -399,11 +400,13 @@ export default function Home({ date, setDate }: HomeProps) {
 
   // 제외 항목 반영된 집계
   const adjustedData = useMemo(() => {
-    if (!originData) return { total: 0, totalLength: 0 };
+    if (!originData) return { total: 0, totalLength: 0, usedDays: 0 };
     const included = originData.filter(i => !excludedIds.has(i.id) && i.confirmType !== '취소');
+    const uniqueDates = new Set(included.map(i => i.date));
     return {
       total: included.reduce((acc, i) => acc + (parseInt(i.fee as any, 10) || 0), 0),
       totalLength: included.length,
+      usedDays: uniqueDates.size,
     };
   }, [originData, excludedIds]);
 
@@ -559,15 +562,21 @@ export default function Home({ date, setDate }: HomeProps) {
           // 월별 파생 데이터 계산
           const loginTrim = login.trim();
           const month = dayjs(date);
-          const monthItems = cachedAll.filter(
-            (i) =>
-              i.user &&
-              i.user.trim() === loginTrim &&
-              dayjs(i.date).isSame(month, 'month') &&
-              i.time > '10:00:00' &&
-              i.time < '16:00:00' &&
-              parseInt(i.fee.toString(), 0) <= 20000
-          );
+          const monthItems = cachedAll
+            .filter(
+              (i) =>
+                i.user &&
+                i.user.trim() === loginTrim &&
+                dayjs(i.date).isSame(month, 'month') &&
+                i.time > '10:00:00' &&
+                i.time < '16:00:00' &&
+                parseInt(i.fee.toString(), 0) <= 20000
+            )
+            .map((i) =>
+              i.confirmType === '취소'
+                ? { ...i, fee: String(-Math.abs(parseInt(i.fee as any, 10))) }
+                : i
+            );
           const approved = monthItems.filter((i) => i.confirmType !== '취소');
           const sum = approved.reduce(
             (acc, i) => acc + (parseInt(i.fee as any, 10) || 0),
@@ -590,15 +599,21 @@ export default function Home({ date, setDate }: HomeProps) {
         // 최신 allData로 파생 데이터 재계산
         const loginTrim = login.trim();
         const month = dayjs(date);
-        const monthItems = (data.allData || []).filter(
-          (i: IOriginData) =>
-            i.user &&
-            i.user.trim() === loginTrim &&
-            dayjs(i.date).isSame(month, 'month') &&
-            i.time > '10:00:00' &&
-            i.time < '16:00:00' &&
-            parseInt(i.fee.toString(), 0) <= 20000
-        );
+        const monthItems = (data.allData || [])
+          .filter(
+            (i: IOriginData) =>
+              i.user &&
+              i.user.trim() === loginTrim &&
+              dayjs(i.date).isSame(month, 'month') &&
+              i.time > '10:00:00' &&
+              i.time < '16:00:00' &&
+              parseInt(i.fee.toString(), 0) <= 20000
+          )
+          .map((i: IOriginData) =>
+            i.confirmType === '취소'
+              ? { ...i, fee: String(-Math.abs(parseInt(i.fee as any, 10))) }
+              : i
+          );
         const approved = monthItems.filter(
           (i: IOriginData) => i.confirmType !== '취소'
         );
@@ -661,14 +676,25 @@ export default function Home({ date, setDate }: HomeProps) {
   }, [date, handleSearch, fetchExcludedItems, scrollToTopFast]);
   useEffect(() => {
     if (!출근일) return;
+    const 지원가능일수 = Math.min(출근일.length, 12);
+    const 남은지원일수 = Math.max(0, 지원가능일수 - adjustedData.usedDays);
+    set남은일수(남은지원일수);
+
+    // 지원 불가 출근일 계산 (현재 월만)
+    const 오늘 = dayjs().format('YYYY-MM-DD');
     const 오늘먹음 = originData?.some(
-      (i: any) => dayjs().format('YYYY-MM-DD') === i.date
+      (i: any) => 오늘 === i.date && !excludedIds.has(i.id) && i.confirmType !== '취소'
     );
-    set남은일수(
-      출근일.filter((i: string) => dayjs().format('YYYY-MM-DD') <= i).length -
-        (오늘먹음 ? 1 : 0) || 0
-    );
-  }, [originData, 출근일]);
+    const 남은출근일목록 = 출근일
+      .filter((i: string) => 오늘 <= i)
+      .filter((i: string) => !(오늘먹음 && i === 오늘))
+      .sort();
+    if (남은출근일목록.length > 남은지원일수) {
+      set미지원출근일(남은출근일목록.slice(남은지원일수));
+    } else {
+      set미지원출근일([]);
+    }
+  }, [originData, 출근일, adjustedData.usedDays, excludedIds]);
   const isCurrentMonth = dayjs(date).isSame(dayjs(), 'month');
   const remainingAmount = 월지원급액한도 - adjustedData.total;
   const dailyBudget =
@@ -1123,13 +1149,36 @@ export default function Home({ date, setDate }: HomeProps) {
               </div>
               <div className="divider" />
               <div>
-                <div className="subText text-2xl font-light">남은 일수</div>
+                <div className="subText text-2xl font-light">남은 지원일수</div>
                 {showSkeleton ? (
                   <div className="skeleton h-6 w-16 mt-2" />
                 ) : (
-                  <div className="text-4xl font-semibold mb-4">
-                    {남은일수}일
-                  </div>
+                  <>
+                    <div className="text-4xl font-semibold mb-1">
+                      {남은일수}일
+                    </div>
+                    <div className="subText text-sm">
+                      {adjustedData.usedDays}일 사용 / {출근일 ? Math.min(출근일.length, 12) : '-'}일 지원
+                    </div>
+                    {isCurrentMonth && 미지원출근일.length > 0 && (
+                      <div className="mt-3 p-3 rounded-xl" style={{ background: 'var(--surface-alt, rgba(255,150,50,0.08))' }}>
+                        <div className="text-sm font-medium mb-2" style={{ color: 'var(--warning, #f59e0b)' }}>
+                          지원 불가 {미지원출근일.length}일
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {미지원출근일.map((d) => (
+                            <span
+                              key={d}
+                              className="text-xs px-2 py-1 rounded-md subText"
+                              style={{ background: 'var(--surface-alt, rgba(255,150,50,0.12))' }}
+                            >
+                              {dayjs(d).format('M/D(dd)')}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <div className="divider" />

@@ -42,6 +42,122 @@ export interface IOriginData {
   place: string;
 }
 
+function SwipeableListItem({
+  children,
+  itemId,
+  isExcluded,
+  disabled,
+  onToggleExclude,
+  openId,
+  setOpenId,
+  onTap,
+}: {
+  children: React.ReactNode;
+  itemId: string;
+  isExcluded: boolean;
+  disabled?: boolean;
+  onToggleExclude: () => void;
+  openId: string | null;
+  setOpenId: (id: string | null) => void;
+  onTap: () => void;
+}) {
+  const W = 72;
+  const t = useRef({ sx: 0, sy: 0, swiping: false, moved: false });
+  const elRef = useRef<HTMLDivElement>(null);
+  const isOpen = openId === itemId;
+
+  useEffect(() => {
+    if (!isOpen && elRef.current) {
+      elRef.current.style.transition = 'transform 0.25s ease';
+      elRef.current.style.transform = 'translateX(0)';
+    }
+  }, [isOpen]);
+
+  if (disabled) return <div onClick={onTap}>{children}</div>;
+
+  return (
+    <div className="relative overflow-hidden rounded-xl">
+      <button
+        className={`absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center gap-1 text-white text-xs font-medium ${
+          isExcluded ? 'bg-blue-500' : 'bg-amber-500'
+        }`}
+        style={{ width: W }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleExclude();
+          setOpenId(null);
+          if (elRef.current) {
+            elRef.current.style.transition = 'transform 0.25s ease';
+            elRef.current.style.transform = 'translateX(0)';
+          }
+        }}
+      >
+        {isExcluded ? (
+          <Eye className="w-5 h-5" />
+        ) : (
+          <EyeOff className="w-5 h-5" />
+        )}
+        <span>{isExcluded ? '포함' : '제외'}</span>
+      </button>
+      <div
+        ref={elRef}
+        onTouchStart={(e) => {
+          t.current = {
+            sx: e.touches[0].clientX,
+            sy: e.touches[0].clientY,
+            swiping: false,
+            moved: false,
+          };
+        }}
+        onTouchMove={(e) => {
+          const s = t.current;
+          const dx = e.touches[0].clientX - s.sx;
+          const dy = e.touches[0].clientY - s.sy;
+          if (!s.swiping) {
+            if (Math.abs(dy) > Math.abs(dx)) return;
+            if (Math.abs(dx) > 8) s.swiping = true;
+            else return;
+          }
+          s.moved = true;
+          const base = isOpen ? -W : 0;
+          const offset = Math.max(-W, Math.min(0, base + dx));
+          if (elRef.current) {
+            elRef.current.style.transition = 'none';
+            elRef.current.style.transform = `translateX(${offset}px)`;
+          }
+        }}
+        onTouchEnd={() => {
+          if (!t.current.moved) return;
+          const el = elRef.current;
+          if (!el) return;
+          const x = new DOMMatrix(getComputedStyle(el).transform).m41;
+          el.style.transition = 'transform 0.25s ease';
+          if (x < -30) {
+            el.style.transform = `translateX(-${W}px)`;
+            setOpenId(itemId);
+          } else {
+            el.style.transform = 'translateX(0)';
+            if (isOpen) setOpenId(null);
+          }
+        }}
+        onClick={() => {
+          if (t.current.moved) {
+            t.current.moved = false;
+            return;
+          }
+          if (isOpen) {
+            setOpenId(null);
+            return;
+          }
+          onTap();
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function Recommend({
   allData,
   date,
@@ -542,6 +658,7 @@ export default function Home({ date, setDate }: HomeProps) {
 
   const [highlightUpdated, setHighlightUpdated] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const showSkeleton = loading && !originData;
   const handleSearch = useCallback(() => {
     const login = window.localStorage.getItem('loginInfo');
@@ -1215,54 +1332,63 @@ export default function Home({ date, setDate }: HomeProps) {
                 originData?.map((item) => {
                   const isExcluded = excludedIds.has(item.id);
                   return (
-                  <div
-                    className={`surface p-4 rounded-xl flex justify-between items-center hover:opacity-95 cursor-pointer ${isExcluded ? 'opacity-40' : ''}`}
+                  <SwipeableListItem
                     key={item.id}
-                    onClick={() => {
+                    itemId={item.id}
+                    isExcluded={isExcluded}
+                    disabled={item.confirmType === '취소'}
+                    onToggleExclude={() => toggleExclude(item.id)}
+                    openId={swipeOpenId}
+                    setOpenId={setSwipeOpenId}
+                    onTap={() => {
                       setSelectedItem(item);
                       setIsModalOpen(true);
                     }}
                   >
-                    <div className="flex flex-col gap-1 items-start">
+                    <div
+                      className={`surface p-4 flex justify-between items-center cursor-pointer ${isExcluded ? 'opacity-40' : ''}`}
+                    >
+                      <div className="flex flex-col gap-1 items-start">
+                        <div
+                          className={`text-lg max-w-[60vw] sm:max-w-[480px] truncate ${
+                            item.confirmType === '취소' || isExcluded
+                              ? 'line-through subText'
+                              : ''
+                          }`}
+                        >
+                          {item.place}
+                        </div>
+                        <div className="flex gap-2 subText items-center text-sm flex-nowrap">
+                          <div>{dayjs(item.date).format('YY.M.DD')}</div>
+                          <div>
+                            {dayjs(
+                              item.date + item.time,
+                              'YYYY-MM-DDHH:mm:ss'
+                            ).format('HH:mm')}
+                          </div>
+                          <div
+                            className={`rounded-full whitespace-nowrap ${
+                              item.confirmType === '승인' ? 'opposite' : 'redBox'
+                            } text-[10px] px-2 py-[2px]`}
+                          >
+                            {item.confirmType}
+                          </div>
+                          {isExcluded && (
+                            <div className="rounded-full whitespace-nowrap surface text-[10px] px-2 py-[2px]">
+                              집계제외
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <div
-                        className={`text-lg max-w-[60vw] sm:max-w-[480px] truncate ${
+                        className={`text-right text-lg font-semibold ${
                           item.confirmType === '취소' || isExcluded
                             ? 'line-through subText'
                             : ''
                         }`}
-                      >
-                        {item.place}
-                      </div>
-                      <div className="flex gap-2 subText items-center text-sm flex-nowrap">
-                        <div>{dayjs(item.date).format('YY.M.DD')}</div>
-                        <div>
-                          {dayjs(
-                            item.date + item.time,
-                            'YYYY-MM-DDHH:mm:ss'
-                          ).format('HH:mm')}
-                        </div>
-                        <div
-                          className={`rounded-full whitespace-nowrap ${
-                            item.confirmType === '승인' ? 'opposite' : 'redBox'
-                          } text-[10px] px-2 py-[2px]`}
-                        >
-                          {item.confirmType}
-                        </div>
-                        {isExcluded && (
-                          <div className="rounded-full whitespace-nowrap surface text-[10px] px-2 py-[2px]">
-                            집계제외
-                          </div>
-                        )}
-                      </div>
+                      >{`${parseInt(item.fee).toLocaleString('ko-kr')}원`}</div>
                     </div>
-                    <div
-                      className={`text-right text-lg font-semibold ${
-                        item.confirmType === '취소' || isExcluded
-                          ? 'line-through subText'
-                          : ''
-                      }`}
-                    >{`${parseInt(item.fee).toLocaleString('ko-kr')}원`}</div>
-                  </div>
+                  </SwipeableListItem>
                   );
                 })
               )}

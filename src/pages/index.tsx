@@ -61,41 +61,59 @@ function SwipeableListItem({
   setOpenId: (id: string | null) => void;
   onTap: () => void;
 }) {
-  const W = 72;
+  const W = 80;
+  const SPRING = 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)';
+  const SPRING_W = 'width 0.45s cubic-bezier(0.25, 1, 0.5, 1)';
   const t = useRef({ sx: 0, sy: 0, swiping: false, moved: false });
   const elRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const isOpen = openId === itemId;
 
   useEffect(() => {
-    if (!isOpen && elRef.current) {
-      elRef.current.style.transition = 'transform 0.25s ease';
-      elRef.current.style.transform = 'translateX(0)';
+    if (!isOpen) {
+      if (elRef.current) {
+        elRef.current.style.transition = SPRING;
+        elRef.current.style.transform = 'translateX(0)';
+      }
+      if (btnRef.current) {
+        btnRef.current.style.transition = SPRING_W;
+        btnRef.current.style.width = `${W}px`;
+      }
     }
   }, [isOpen]);
 
   if (disabled) return <div onClick={onTap}>{children}</div>;
 
+  const doClose = () => {
+    if (elRef.current) {
+      elRef.current.style.transition = SPRING;
+      elRef.current.style.transform = 'translateX(0)';
+    }
+    if (btnRef.current) {
+      btnRef.current.style.transition = SPRING_W;
+      btnRef.current.style.width = `${W}px`;
+    }
+  };
+
   return (
     <div className="relative overflow-hidden rounded-xl">
       <button
-        className={`absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center gap-1 text-white text-xs font-medium ${
+        ref={btnRef}
+        className={`absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center gap-1.5 text-white text-[11px] font-semibold ${
           isExcluded ? 'bg-blue-500' : 'bg-amber-500'
         }`}
-        style={{ width: W }}
+        style={{ width: W, minWidth: W }}
         onClick={(e) => {
           e.stopPropagation();
           onToggleExclude();
           setOpenId(null);
-          if (elRef.current) {
-            elRef.current.style.transition = 'transform 0.25s ease';
-            elRef.current.style.transform = 'translateX(0)';
-          }
+          doClose();
         }}
       >
         {isExcluded ? (
-          <Eye className="w-5 h-5" />
+          <Eye className="w-6 h-6" />
         ) : (
-          <EyeOff className="w-5 h-5" />
+          <EyeOff className="w-6 h-6" />
         )}
         <span>{isExcluded ? '포함' : '제외'}</span>
       </button>
@@ -108,6 +126,7 @@ function SwipeableListItem({
             swiping: false,
             moved: false,
           };
+          if (!isOpen && openId) setOpenId(null);
         }}
         onTouchMove={(e) => {
           const s = t.current;
@@ -120,23 +139,48 @@ function SwipeableListItem({
           }
           s.moved = true;
           const base = isOpen ? -W : 0;
-          const offset = Math.max(-W, Math.min(0, base + dx));
+          const raw = base + dx;
+          let offset: number;
+          if (raw < -W) {
+            offset = -(W + (-raw - W) * 0.3);
+          } else {
+            offset = Math.min(0, raw);
+          }
           if (elRef.current) {
             elRef.current.style.transition = 'none';
             elRef.current.style.transform = `translateX(${offset}px)`;
+          }
+          if (btnRef.current) {
+            btnRef.current.style.transition = 'none';
+            btnRef.current.style.width = `${Math.max(W, -offset)}px`;
           }
         }}
         onTouchEnd={() => {
           if (!t.current.moved) return;
           const el = elRef.current;
+          const btn = btnRef.current;
           if (!el) return;
           const x = new DOMMatrix(getComputedStyle(el).transform).m41;
-          el.style.transition = 'transform 0.25s ease';
-          if (x < -30) {
+          const cw = el.parentElement?.clientWidth || 300;
+
+          el.style.transition = SPRING;
+          if (btn) btn.style.transition = SPRING_W;
+
+          if (-x > cw * 0.55) {
+            el.style.transform = `translateX(-${cw}px)`;
+            if (btn) btn.style.width = `${cw}px`;
+            setTimeout(() => {
+              onToggleExclude();
+              setOpenId(null);
+              doClose();
+            }, 280);
+          } else if (x < -30) {
             el.style.transform = `translateX(-${W}px)`;
+            if (btn) btn.style.width = `${W}px`;
             setOpenId(itemId);
           } else {
             el.style.transform = 'translateX(0)';
+            if (btn) btn.style.width = `${W}px`;
             if (isOpen) setOpenId(null);
           }
         }}

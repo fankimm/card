@@ -16,6 +16,8 @@ import {
   Utensils,
   Menu,
   Shuffle,
+  EyeOff,
+  Eye,
 } from 'lucide-react';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import AdBanner from '@/components/AdBanner';
@@ -356,6 +358,55 @@ export default function Home({ date, setDate }: HomeProps) {
   const [aiInsightKey, setAiInsightKey] = useState<string | null>(null);
   const router = useRouter();
 
+  // 집계 제외 항목 관리 (Google Sheets 연동)
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
+  const fetchExcludedItems = useCallback(() => {
+    const login = typeof window !== 'undefined' ? window.localStorage.getItem('loginInfo') : '';
+    if (!login) return;
+    fetch(`/api/excluded-items?name=${encodeURIComponent(login)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.data && Array.isArray(data.data)) {
+          setExcludedIds(new Set(data.data.map(String)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const toggleExclude = useCallback((id: string) => {
+    const login = typeof window !== 'undefined' ? window.localStorage.getItem('loginInfo') : '';
+    if (!login) return;
+    // 낙관적 업데이트
+    setExcludedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    fetch('/api/excluded-items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: login, itemId: id }),
+    }).catch(() => {
+      // 실패 시 롤백
+      setExcludedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    });
+  }, []);
+
+  // 제외 항목 반영된 집계
+  const adjustedData = useMemo(() => {
+    if (!originData) return { total: 0, totalLength: 0 };
+    const included = originData.filter(i => !excludedIds.has(i.id) && i.confirmType !== '취소');
+    return {
+      total: included.reduce((acc, i) => acc + (parseInt(i.fee as any, 10) || 0), 0),
+      totalLength: included.length,
+    };
+  }, [originData, excludedIds]);
+
   // Stable monthly tagline selection (no flicker on re-render)
   const monthKey = dayjs(date).format('YYYY-MM');
   const monthNumber = parseInt(dayjs(date).format('M'), 10);
@@ -461,8 +512,8 @@ export default function Home({ date, setDate }: HomeProps) {
           typeof window !== 'undefined'
             ? window.localStorage.getItem('loginInfo')
             : undefined,
-        total,
-        totalLength,
+        total: adjustedData.total,
+        totalLength: adjustedData.totalLength,
         items: originData || [],
       };
       const text = JSON.stringify(payload, null, 2);
@@ -484,7 +535,7 @@ export default function Home({ date, setDate }: HomeProps) {
       setToast('복사 실패. 콘솔을 확인하세요.');
       setTimeout(() => setToast(null), 1500);
     }
-  }, [date, originData, total, totalLength]);
+  }, [date, originData, adjustedData]);
 
   const [highlightUpdated, setHighlightUpdated] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -600,13 +651,14 @@ export default function Home({ date, setDate }: HomeProps) {
         });
 
       handleSearch();
+      fetchExcludedItems();
       setHasSession(true);
       // 탭 전환 외에도 월 변경 시 상단으로 스크롤 이동
       scrollToTopFast();
     } else {
       setHasSession(false);
     }
-  }, [date, handleSearch, scrollToTopFast]);
+  }, [date, handleSearch, fetchExcludedItems, scrollToTopFast]);
   useEffect(() => {
     if (!출근일) return;
     const 오늘먹음 = originData?.some(
@@ -618,7 +670,7 @@ export default function Home({ date, setDate }: HomeProps) {
     );
   }, [originData, 출근일]);
   const isCurrentMonth = dayjs(date).isSame(dayjs(), 'month');
-  const remainingAmount = 월지원급액한도 - (total || 0);
+  const remainingAmount = 월지원급액한도 - adjustedData.total;
   const dailyBudget =
     !isCurrentMonth || !남은일수 || 남은일수 <= 0 || remainingAmount <= 0
       ? null
@@ -830,6 +882,7 @@ export default function Home({ date, setDate }: HomeProps) {
     const onLogin = () => {
       const loginInfo = window.localStorage.getItem('loginInfo');
       if (!loginInfo) return;
+      fetchExcludedItems();
       fetch(
         `/api/get-office-days?name=${loginInfo}&date=${dayjs(date).format(
           'YYYY-MM'
@@ -855,7 +908,7 @@ export default function Home({ date, setDate }: HomeProps) {
         window.removeEventListener('login', onLogin);
       }
     };
-  }, [date, handleSearch]);
+  }, [date, handleSearch, fetchExcludedItems]);
   if (hasSession) {
     return (
       <div className="min-h-screen">
@@ -1021,7 +1074,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   <div className="skeleton h-3 w-24" />
                 </div>
               ) : (
-                <div className="text-4xl font-semibold mb-4">{`${total?.toLocaleString(
+                <div className="text-4xl font-semibold mb-4">{`${adjustedData.total.toLocaleString(
                   'ko-KR'
                 )}원`}</div>
               )}
@@ -1035,7 +1088,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   <div className="skeleton h-6 w-24 mt-2" />
                 ) : (
                   <div className="text-4xl font-semibold mb-4">
-                    {totalLength}건
+                    {adjustedData.totalLength}건
                   </div>
                 )}
               </div>
@@ -1048,9 +1101,9 @@ export default function Home({ date, setDate }: HomeProps) {
                   <div className="skeleton h-6 w-36 mt-2" />
                 ) : (
                   <div className="text-4xl font-semibold mb-4">
-                    {`${(totalLength === 0
+                    {`${(adjustedData.totalLength === 0
                       ? 0
-                      : (total || 0) / (totalLength || 0)
+                      : adjustedData.total / adjustedData.totalLength
                     ).toLocaleString('ko-KR')}원`}
                   </div>
                 )}
@@ -1062,7 +1115,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   <div className="skeleton h-6 w-40 mt-2" />
                 ) : (
                   <div className="text-4xl font-semibold mb-4">
-                    {`${(월지원급액한도 - (total || 0)).toLocaleString(
+                    {`${(월지원급액한도 - adjustedData.total).toLocaleString(
                       'ko-KR'
                     )}원`}
                   </div>
@@ -1110,9 +1163,11 @@ export default function Home({ date, setDate }: HomeProps) {
                   </div>
                 </>
               ) : (
-                originData?.map((item) => (
+                originData?.map((item) => {
+                  const isExcluded = excludedIds.has(item.id);
+                  return (
                   <div
-                    className="surface p-4 rounded-xl flex justify-between items-center hover:opacity-95 cursor-pointer"
+                    className={`surface p-4 rounded-xl flex justify-between items-center hover:opacity-95 cursor-pointer ${isExcluded ? 'opacity-40' : ''}`}
                     key={item.id}
                     onClick={() => {
                       setSelectedItem(item);
@@ -1122,7 +1177,7 @@ export default function Home({ date, setDate }: HomeProps) {
                     <div className="flex flex-col gap-1 items-start">
                       <div
                         className={`text-lg max-w-[60vw] sm:max-w-[480px] truncate ${
-                          item.confirmType === '취소'
+                          item.confirmType === '취소' || isExcluded
                             ? 'line-through subText'
                             : ''
                         }`}
@@ -1144,17 +1199,23 @@ export default function Home({ date, setDate }: HomeProps) {
                         >
                           {item.confirmType}
                         </div>
+                        {isExcluded && (
+                          <div className="rounded-full whitespace-nowrap surface text-[10px] px-2 py-[2px]">
+                            집계제외
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div
                       className={`text-right text-lg font-semibold ${
-                        item.confirmType === '취소'
+                        item.confirmType === '취소' || isExcluded
                           ? 'line-through subText'
                           : ''
                       }`}
                     >{`${parseInt(item.fee).toLocaleString('ko-kr')}원`}</div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -1456,6 +1517,28 @@ export default function Home({ date, setDate }: HomeProps) {
                   <div className="subText">사용자</div>
                   <div className="text-sm">{selectedItem.user}</div>
                 </div>
+                {selectedItem.confirmType !== '취소' && (
+                  <button
+                    className={`mt-4 w-full rounded-xl p-3 flex items-center justify-center gap-2 text-sm ${
+                      excludedIds.has(selectedItem.id)
+                        ? 'opposite'
+                        : 'surface'
+                    }`}
+                    onClick={() => toggleExclude(selectedItem.id)}
+                  >
+                    {excludedIds.has(selectedItem.id) ? (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        <span>집계에 포함하기</span>
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        <span>집계에서 제외하기</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 {/* 배경 클릭으로 닫힘 */}
               </div>
             </div>

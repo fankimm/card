@@ -61,26 +61,31 @@ function SwipeableListItem({
   setOpenId: (id: string | null) => void;
   onTap: () => void;
 }) {
-  const W = 80;
+  const W = 72;
   const SPRING = 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)';
-  const SPRING_W = 'width 0.45s cubic-bezier(0.25, 1, 0.5, 1)';
+  const isOpen = openId === itemId;
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
   const t = useRef({ sx: 0, sy: 0, swiping: false, moved: false });
   const elRef = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const isOpen = openId === itemId;
 
   useEffect(() => {
-    if (!isOpen) {
-      if (elRef.current) {
-        elRef.current.style.transition = SPRING;
-        elRef.current.style.transform = 'translateX(0)';
-      }
-      if (btnRef.current) {
-        btnRef.current.style.transition = SPRING_W;
-        btnRef.current.style.width = `${W}px`;
-      }
+    if (!isOpen && elRef.current) {
+      elRef.current.style.transition = SPRING;
+      elRef.current.style.transform = 'translateX(0)';
     }
   }, [isOpen]);
+
+  // Native touchmove listener for preventDefault (blocks vertical scroll during swipe)
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el || disabled) return;
+    const onMove = (e: TouchEvent) => {
+      if (t.current.swiping) e.preventDefault();
+    };
+    el.addEventListener('touchmove', onMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onMove);
+  }, [disabled]);
 
   if (disabled) return <div onClick={onTap}>{children}</div>;
 
@@ -89,36 +94,37 @@ function SwipeableListItem({
       elRef.current.style.transition = SPRING;
       elRef.current.style.transform = 'translateX(0)';
     }
-    if (btnRef.current) {
-      btnRef.current.style.transition = SPRING_W;
-      btnRef.current.style.width = `${W}px`;
-    }
   };
 
   return (
     <div className="relative overflow-hidden rounded-xl">
-      <button
-        ref={btnRef}
-        className={`absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center gap-1.5 text-white text-[11px] font-semibold ${
-          isExcluded ? 'bg-blue-500' : 'bg-amber-500'
-        }`}
-        style={{ width: W, minWidth: W }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleExclude();
-          setOpenId(null);
-          doClose();
-        }}
+      <div
+        className="absolute right-0 top-0 bottom-0 flex items-center justify-center"
+        style={{ width: W }}
       >
-        {isExcluded ? (
-          <Eye className="w-6 h-6" />
-        ) : (
-          <EyeOff className="w-6 h-6" />
-        )}
-        <span>{isExcluded ? '포함' : '제외'}</span>
-      </button>
+        <button
+          className={`w-14 h-14 rounded-full flex flex-col items-center justify-center gap-0.5 text-white text-[10px] font-semibold shadow-md ${
+            isExcluded ? 'bg-blue-500' : 'bg-amber-500'
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExclude();
+            setOpenId(null);
+            doClose();
+          }}
+        >
+          {isExcluded ? (
+            <Eye className="w-5 h-5" />
+          ) : (
+            <EyeOff className="w-5 h-5" />
+          )}
+          <span>{isExcluded ? '포함' : '제외'}</span>
+        </button>
+      </div>
       <div
         ref={elRef}
+        className="relative rounded-xl"
+        style={{ background: 'rgb(var(--bg-elev))' }}
         onTouchStart={(e) => {
           t.current = {
             sx: e.touches[0].clientX,
@@ -126,7 +132,7 @@ function SwipeableListItem({
             swiping: false,
             moved: false,
           };
-          if (!isOpen && openId) setOpenId(null);
+          if (!isOpenRef.current && openId) setOpenId(null);
         }}
         onTouchMove={(e) => {
           const s = t.current;
@@ -138,7 +144,7 @@ function SwipeableListItem({
             else return;
           }
           s.moved = true;
-          const base = isOpen ? -W : 0;
+          const base = isOpenRef.current ? -W : 0;
           const raw = base + dx;
           let offset: number;
           if (raw < -W) {
@@ -150,25 +156,16 @@ function SwipeableListItem({
             elRef.current.style.transition = 'none';
             elRef.current.style.transform = `translateX(${offset}px)`;
           }
-          if (btnRef.current) {
-            btnRef.current.style.transition = 'none';
-            btnRef.current.style.width = `${Math.max(W, -offset)}px`;
-          }
         }}
         onTouchEnd={() => {
           if (!t.current.moved) return;
           const el = elRef.current;
-          const btn = btnRef.current;
           if (!el) return;
           const x = new DOMMatrix(getComputedStyle(el).transform).m41;
           const cw = el.parentElement?.clientWidth || 300;
-
           el.style.transition = SPRING;
-          if (btn) btn.style.transition = SPRING_W;
-
           if (-x > cw * 0.55) {
             el.style.transform = `translateX(-${cw}px)`;
-            if (btn) btn.style.width = `${cw}px`;
             setTimeout(() => {
               onToggleExclude();
               setOpenId(null);
@@ -176,12 +173,10 @@ function SwipeableListItem({
             }, 280);
           } else if (x < -30) {
             el.style.transform = `translateX(-${W}px)`;
-            if (btn) btn.style.width = `${W}px`;
             setOpenId(itemId);
           } else {
             el.style.transform = 'translateX(0)';
-            if (btn) btn.style.width = `${W}px`;
-            if (isOpen) setOpenId(null);
+            if (isOpenRef.current) setOpenId(null);
           }
         }}
         onClick={() => {
@@ -189,7 +184,7 @@ function SwipeableListItem({
             t.current.moved = false;
             return;
           }
-          if (isOpen) {
+          if (isOpenRef.current) {
             setOpenId(null);
             return;
           }

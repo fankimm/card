@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { isMaskedNameMatch } from '../lib/user-match';
 
 const Login = () => {
@@ -8,6 +8,15 @@ const Login = () => {
   const [card, setCard] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  // 이름·카드번호 입력하는 동안 데이터를 미리 받아둬서 제출 시 대기를 없앤다
+  const prefetchRef = useRef<Promise<any> | null>(null);
+  useEffect(() => {
+    prefetchRef.current = fetch(
+      `/api/get-total-fee?name=&date=${new Date().toISOString().slice(0, 10)}`
+    )
+      .then((res) => res.json())
+      .catch(() => null);
+  }, []);
 
   const handleLogin = async () => {
     const trimmedName = name.trim();
@@ -22,16 +31,14 @@ const Login = () => {
     try {
       // 방어로직: 이 카드번호로 기록된 내역의 이름이
       // 입력한 이름과 (마스킹 감안하고) 일치하는지 검증
-      const res = await fetch(
-        `/api/get-total-fee?name=${encodeURIComponent(
-          trimmedName
-        )}&card=${trimmedCard}&date=${new Date().toISOString().slice(0, 10)}`
-      );
-      const data = await res.json();
-      const cardItems = ((data?.allData || []) as {
+      const data = (await prefetchRef.current) || undefined;
+      const allData = (data?.allData || []) as {
         user?: string;
         cardNumber?: string;
-      }[]).filter((i) => String(i.cardNumber || '').trim() === trimmedCard);
+      }[];
+      const cardItems = allData.filter(
+        (i) => String(i.cardNumber || '').trim() === trimmedCard
+      );
       if (
         cardItems.length > 0 &&
         !cardItems.some((i) => isMaskedNameMatch(i.user, trimmedName))
@@ -39,6 +46,15 @@ const Login = () => {
         setError('이름과 카드 번호가 일치하지 않아요.');
         setChecking(false);
         return;
+      }
+      // 받은 데이터를 홈 캐시에 미리 넣어 첫 화면을 즉시 그리게 한다
+      if (allData.length > 0) {
+        try {
+          window.localStorage.setItem(
+            `card-usages:${trimmedName}:allData`,
+            JSON.stringify(allData)
+          );
+        } catch {}
       }
     } catch {
       // 검증 실패(네트워크 등) 시에는 로그인 자체는 허용

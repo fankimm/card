@@ -11,9 +11,9 @@ const Detail = ({ date }: { date: string }) => {
     if (typeof window !== 'undefined') {
       setLoading(true);
       fetch(
-        `/api/usages-list?name=${window.localStorage.getItem(
-          'loginInfo'
-        )}&date=${date}`
+        `/api/usages-list?name=${encodeURIComponent(
+          window.localStorage.getItem('loginInfo') || ''
+        )}&card=${window.localStorage.getItem('cardInfo') || ''}&date=${date}`
       )
         .then((res) => {
           return res.json();

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 // import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import { getData } from './get-total-fee';
+import { isSameUser } from '../../lib/user-match';
 
 type CachedDataType = {
   confirmType: string;
@@ -26,6 +27,7 @@ export default async function handler(
   // );
   const date = req.query.date as string;
   const user = req.query.name as string;
+  const card = req.query.card as string;
   try {
     await getData();
     const data = global.cachedData;
@@ -39,7 +41,7 @@ export default async function handler(
         }
         return item;
       })
-      .filter((item) => item.user.trim() === user.trim())
+      .filter((item) => isSameUser(item, user, card))
       .filter((item) => {
         return dayjs(item.date).isSame(dayjs(date), 'month');
       })

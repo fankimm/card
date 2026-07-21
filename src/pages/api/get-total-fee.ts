@@ -4,6 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 import util from 'util';
+import { isSameUser } from '../../lib/user-match';
 export interface Data {
   confirmType: string;
   cardNumber: string;
@@ -50,6 +51,7 @@ export default async function handler(
   await getData();
   const date = req.query.date as string;
   const user = req.query.name as string;
+  const card = req.query.card as string;
   const data = (global as unknown as NodeJS.Global).cachedData as Data[];
   const 전체데이터 = data;
   const 리스트데이터 = data
@@ -62,7 +64,7 @@ export default async function handler(
       }
       return item;
     })
-    .filter((item) => item.user.trim() === user.trim())
+    .filter((item) => isSameUser(item, user, card))
     .filter((item) => {
       return dayjs(item.date).isSame(dayjs(date), 'month');
     })

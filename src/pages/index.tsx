@@ -26,6 +26,7 @@ import SeasonalEffect from '@/components/SeasonalEffect';
 import HeatHaze from '@/components/HeatHaze';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
+import { isSameUser } from '../lib/user-match';
 interface HomeProps {
   date: string;
   setDate: Function;
@@ -248,9 +249,13 @@ function Recommend({
     typeof window !== 'undefined'
       ? window.localStorage.getItem('loginInfo')?.trim()
       : '';
+  const loginCard =
+    typeof window !== 'undefined'
+      ? window.localStorage.getItem('cardInfo') || undefined
+      : undefined;
   const month = dayjs();
   const all = allData
-    .filter((i) => (login ? i.user?.trim() === login : true))
+    .filter((i) => (login ? isSameUser(i, login, loginCard) : true))
     .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
   if (all.length === 0) {
     return <div className="subText">사용자 데이터가 부족해요.</div>;
@@ -732,6 +737,7 @@ export default function Home({ date, setDate }: HomeProps) {
   const showSkeleton = loading && !originData;
   const handleSearch = useCallback(() => {
     const login = window.localStorage.getItem('loginInfo');
+    const loginCard = window.localStorage.getItem('cardInfo') || undefined;
     if (!login) return;
     const cacheKey = `card-usages:${login}:allData`;
 
@@ -753,7 +759,7 @@ export default function Home({ date, setDate }: HomeProps) {
             .filter(
               (i) =>
                 i.user &&
-                i.user.trim() === loginTrim &&
+                isSameUser(i, loginTrim, loginCard) &&
                 dayjs(i.date).isSame(month, 'month') &&
                 i.time > '10:00:00' &&
                 i.time < '16:00:00' &&
@@ -779,7 +785,11 @@ export default function Home({ date, setDate }: HomeProps) {
 
     // 2) 최신 데이터 페치
     if (!hadCache) setLoading(true);
-    fetch(`/api/get-total-fee?name=${login}&date=${date}`)
+    fetch(
+      `/api/get-total-fee?name=${encodeURIComponent(login)}&card=${
+        loginCard || ''
+      }&date=${date}`
+    )
       .then((res) => res.json())
       .then((data) => {
         setAllData(data.allData);
@@ -790,7 +800,7 @@ export default function Home({ date, setDate }: HomeProps) {
           .filter(
             (i: IOriginData) =>
               i.user &&
-              i.user.trim() === loginTrim &&
+              isSameUser(i, loginTrim, loginCard) &&
               dayjs(i.date).isSame(month, 'month') &&
               i.time > '10:00:00' &&
               i.time < '16:00:00' &&
@@ -829,6 +839,16 @@ export default function Home({ date, setDate }: HomeProps) {
   }, [date]);
   useEffect(() => {
     const loginInfo = window.localStorage.getItem('loginInfo');
+    const cardInfo = window.localStorage.getItem('cardInfo');
+    // 카드번호 없는 구버전 세션은 강제 로그아웃 (이름+카드번호 로그인으로 이전)
+    if (loginInfo && !cardInfo) {
+      window.localStorage.removeItem('loginInfo');
+      try {
+        window.localStorage.removeItem(`card-usages:${loginInfo}:allData`);
+      } catch {}
+      setHasSession(false);
+      return;
+    }
     if (loginInfo) {
       fetch(
         `/api/get-office-days?name=${loginInfo}&date=${dayjs(date).format(
@@ -894,9 +914,13 @@ export default function Home({ date, setDate }: HomeProps) {
       typeof window !== 'undefined'
         ? window.localStorage.getItem('loginInfo')
         : '';
+    const loginCard =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('cardInfo') || undefined
+        : undefined;
     const filtered = allData
       ?.filter((i) =>
-        statsUserOnly && login ? i.user.trim() === login.trim() : true
+        statsUserOnly && login ? isSameUser(i, login, loginCard) : true
       )
       .filter((i) => i.confirmType !== '취소')
       .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
@@ -941,9 +965,13 @@ export default function Home({ date, setDate }: HomeProps) {
       typeof window !== 'undefined'
         ? window.localStorage.getItem('loginInfo')
         : '';
+    const loginCard =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('cardInfo') || undefined
+        : undefined;
     const baseFiltered = allData
       .filter((i) =>
-        statsUserOnly && login ? i.user.trim() === (login || '').trim() : true
+        statsUserOnly && login ? isSameUser(i, login || '', loginCard) : true
       )
       .filter((i) => i.confirmType !== '취소')
       .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
@@ -1827,6 +1855,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   className="surface rounded-xl p-4 flex items-center gap-2 hover:opacity-90"
                   onClick={() => {
                     window.localStorage.removeItem('loginInfo');
+                    window.localStorage.removeItem('cardInfo');
                     setHasSession(false);
                     setIsSettingsOpen(false);
                   }}

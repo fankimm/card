@@ -69,7 +69,8 @@ export default async function handler(
       return dayjs(item.date).isSame(dayjs(date), 'month');
     })
     .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
-    .filter((item) => parseInt(item.fee.toString(), 0) <= 20000);
+    .filter((item) => parseInt(item.fee.toString(), 0) <= 20000)
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
   const 집계용데이터 = 리스트데이터.filter(
     (item) => item.confirmType !== '취소'
   );

@@ -769,6 +769,9 @@ export default function Home({ date, setDate }: HomeProps) {
               i.confirmType === '취소'
                 ? { ...i, fee: String(-Math.abs(parseInt(i.fee as any, 10))) }
                 : i
+            )
+            .sort((a, b) =>
+              `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
             );
           const approved = monthItems.filter((i) => i.confirmType !== '취소');
           const sum = approved.reduce(
@@ -810,6 +813,9 @@ export default function Home({ date, setDate }: HomeProps) {
             i.confirmType === '취소'
               ? { ...i, fee: String(-Math.abs(parseInt(i.fee as any, 10))) }
               : i
+          )
+          .sort((a: IOriginData, b: IOriginData) =>
+            `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
           );
         const approved = monthItems.filter(
           (i: IOriginData) => i.confirmType !== '취소'

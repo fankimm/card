@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 import util from 'util';
 import { isSameUser } from '../../lib/user-match';
+import { 취소상쇄, 점심지원대상 } from '../../lib/usage-filter';
 export interface Data {
   confirmType: string;
   cardNumber: string;
@@ -19,6 +20,7 @@ declare global {
   namespace NodeJS {
     interface Global {
       cachedData?: Data[];
+      cachedAt?: number;
       myData: {
         instanceId?: string;
       };
@@ -28,14 +30,21 @@ declare global {
 
 console.log('--- 서버시작 ---');
 console.log('현재시간', dayjs().format('YYYY-MM-DD HH:mm:ss'));
+
+// 캐시를 무기한 들고 있으면 인스턴스가 살아있는 동안 새 결제가 영영 안 보인다.
+// 3분 지나면 다시 받아온다.
+const CACHE_TTL_MS = 3 * 60 * 1000;
+
 export const getData = async () => {
   try {
-    const cachedData = (global as unknown as NodeJS.Global).cachedData;
-    if (!cachedData) {
-      console.log('캐시없음');
+    const g = global as unknown as NodeJS.Global;
+    const 만료 = !g.cachedAt || Date.now() - g.cachedAt > CACHE_TTL_MS;
+    if (!g.cachedData || 만료) {
+      console.log(g.cachedData ? '캐시만료' : '캐시없음');
       const response = await fetch(process.env.API_ENDPOINT || '');
       const data = (await response.json()) as { data: Data[] };
       (global as any).cachedData = data.data as Data[];
+      (global as any).cachedAt = Date.now();
     }
   } catch (err) {
     if (err instanceof Error) {
@@ -54,31 +63,19 @@ export default async function handler(
   const card = req.query.card as string;
   const data = (global as unknown as NodeJS.Global).cachedData as Data[];
   const 전체데이터 = data;
-  const 리스트데이터 = data
-    ?.map((item) => {
-      if (item.confirmType === '취소') {
-        return {
-          ...item,
-          fee: -parseInt(item.fee),
-        };
-      }
-      return item;
-    })
+  // 취소 상쇄를 금액·시간 필터보다 먼저 해야 한다.
+  // 2만원 넘는 결제를 취소한 경우, 먼저 걸러버리면 짝을 못 찾아 취소가 붕 뜬다.
+  const 내역 = (data || [])
     .filter((item) => isSameUser(item, user, card))
-    .filter((item) => {
-      return dayjs(item.date).isSame(dayjs(date), 'month');
-    })
-    .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
-    .filter((item) => parseInt(item.fee.toString(), 0) <= 20000)
+    .filter((item) => dayjs(item.date).isSame(dayjs(date), 'month'));
+  const 리스트데이터 = 취소상쇄(내역)
+    .filter(점심지원대상)
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-  const 집계용데이터 = 리스트데이터.filter(
-    (item) => item.confirmType !== '취소'
-  );
-  const total = 집계용데이터.reduce(
+  const total = 리스트데이터.reduce(
     (a, b) => a + parseInt(b.fee.toString()),
     0
   );
-  const totalLength = 집계용데이터.length;
+  const totalLength = 리스트데이터.length;
   res.status(200).json({
     message: '성공',
     data: total,

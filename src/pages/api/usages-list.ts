@@ -3,9 +3,12 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import dayjs from 'dayjs';
 import { getData } from './get-total-fee';
 import { isSameUser } from '../../lib/user-match';
+import { 취소상쇄, 점심지원대상 } from '../../lib/usage-filter';
 
 type CachedDataType = {
   confirmType: string;
+  cardNumber?: string;
+  place?: string;
   fee: string;
   user: string;
   date: string;
@@ -31,22 +34,11 @@ export default async function handler(
   try {
     await getData();
     const data = global.cachedData;
-    const temp = data
-      ?.map((item) => {
-        if (item.confirmType === '취소') {
-          return {
-            ...item,
-            fee: -parseInt(item.fee),
-          };
-        }
-        return item;
-      })
+    const 내역 = (data || [])
       .filter((item) => isSameUser(item, user, card))
-      .filter((item) => {
-        return dayjs(item.date).isSame(dayjs(date), 'month');
-      })
-      .filter((item) => item.time > '10:00:00' && item.time < '16:00:00')
-      .filter((item) => parseInt(item.fee.toString(), 0) <= 20000)
+      .filter((item) => dayjs(item.date).isSame(dayjs(date), 'month'));
+    const temp = 취소상쇄(내역)
+      .filter(점심지원대상)
       .sort((a, b) =>
         `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
       );

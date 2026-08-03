@@ -27,6 +27,7 @@ import HeatHaze from '@/components/HeatHaze';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
 import { isSameUser } from '../lib/user-match';
+import { 월별내역추리기, 누락의심일찾기 } from '../lib/usage-filter';
 interface HomeProps {
   date: string;
   setDate: Function;
@@ -753,34 +754,19 @@ export default function Home({ date, setDate }: HomeProps) {
         if (cachedAll && Array.isArray(cachedAll)) {
           setAllData(cachedAll);
           // 월별 파생 데이터 계산
-          const loginTrim = login.trim();
-          const month = dayjs(date);
-          const monthItems = cachedAll
-            .filter(
-              (i) =>
-                i.user &&
-                isSameUser(i, loginTrim, loginCard) &&
-                dayjs(i.date).isSame(month, 'month') &&
-                i.time > '10:00:00' &&
-                i.time < '16:00:00' &&
-                parseInt(i.fee.toString(), 0) <= 20000
-            )
-            .map((i) =>
-              i.confirmType === '취소'
-                ? { ...i, fee: String(-Math.abs(parseInt(i.fee as any, 10))) }
-                : i
-            )
-            .sort((a, b) =>
-              `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
-            );
-          const approved = monthItems.filter((i) => i.confirmType !== '취소');
-          const sum = approved.reduce(
+          const monthItems = 월별내역추리기(
+            cachedAll,
+            login.trim(),
+            loginCard,
+            date
+          );
+          const sum = monthItems.reduce(
             (acc, i) => acc + (parseInt(i.fee as any, 10) || 0),
             0
           );
           setOriginData(monthItems);
           setTotal(sum);
-          setTotalLength(approved.length);
+          setTotalLength(monthItems.length);
           hadCache = true;
         }
       }
@@ -797,37 +783,20 @@ export default function Home({ date, setDate }: HomeProps) {
       .then((data) => {
         setAllData(data.allData);
         // 최신 allData로 파생 데이터 재계산
-        const loginTrim = login.trim();
-        const month = dayjs(date);
-        const monthItems = (data.allData || [])
-          .filter(
-            (i: IOriginData) =>
-              i.user &&
-              isSameUser(i, loginTrim, loginCard) &&
-              dayjs(i.date).isSame(month, 'month') &&
-              i.time > '10:00:00' &&
-              i.time < '16:00:00' &&
-              parseInt(i.fee.toString(), 0) <= 20000
-          )
-          .map((i: IOriginData) =>
-            i.confirmType === '취소'
-              ? { ...i, fee: String(-Math.abs(parseInt(i.fee as any, 10))) }
-              : i
-          )
-          .sort((a: IOriginData, b: IOriginData) =>
-            `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
-          );
-        const approved = monthItems.filter(
-          (i: IOriginData) => i.confirmType !== '취소'
+        const monthItems = 월별내역추리기<IOriginData>(
+          data.allData || [],
+          login.trim(),
+          loginCard,
+          date
         );
-        const sum = approved.reduce(
+        const sum = monthItems.reduce(
           (acc: number, i: IOriginData) =>
             acc + (parseInt(i.fee as any, 10) || 0),
           0
         );
         setOriginData(monthItems);
         setTotal(sum);
-        setTotalLength(approved.length);
+        setTotalLength(monthItems.length);
         try {
           window.localStorage.setItem(
             cacheKey,
@@ -908,6 +877,22 @@ export default function Home({ date, setDate }: HomeProps) {
       set미지원출근일([]);
     }
   }, [originData, 출근일, adjustedData.usedDays, excludedIds]);
+
+  // 출근했는데 결제가 하나도 없는 지난 날 = 카드 문자가 안 들어왔을 수 있다.
+  // 실제로 4/06·6/30·7/01 결제가 이렇게 통째로 빠져 예산 초과를 뒤늦게 알았다.
+  const 누락의심일 = useMemo(() => {
+    if (!allData || !출근일) return [] as string[];
+    const login = window.localStorage.getItem('loginInfo') || '';
+    const card = window.localStorage.getItem('cardInfo') || '';
+    return 누락의심일찾기(
+      allData,
+      login.trim(),
+      card,
+      출근일,
+      dayjs().format('YYYY-MM-DD')
+    );
+  }, [allData, 출근일]);
+
   const isCurrentMonth = dayjs(date).isSame(dayjs(), 'month');
   const remainingAmount = 월지원급액한도 - adjustedData.total;
   const dailyBudget =
@@ -1392,6 +1377,27 @@ export default function Home({ date, setDate }: HomeProps) {
                               key={d}
                               className="text-xs px-2 py-1 rounded-md subText"
                               style={{ background: 'var(--surface-alt, rgba(255,150,50,0.12))' }}
+                            >
+                              {dayjs(d).format('M/D(dd)')}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {누락의심일.length > 0 && (
+                      <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(80,150,255,0.08)' }}>
+                        <div className="text-sm font-medium mb-1" style={{ color: '#3b82f6' }}>
+                          내역 없는 출근일 {누락의심일.length}일
+                        </div>
+                        <div className="subText text-xs mb-2">
+                          출근한 날인데 결제가 안 잡혔어요. 안 쓴 날이면 그냥 두세요
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {누락의심일.map((d) => (
+                            <span
+                              key={d}
+                              className="text-xs px-2 py-1 rounded-md subText"
+                              style={{ background: 'rgba(80,150,255,0.12)' }}
                             >
                               {dayjs(d).format('M/D(dd)')}
                             </span>

@@ -14,13 +14,18 @@ dayjs.extend(timezone);
 // 그래서 수신 원문과 처리 결과를 시트의 로그 탭에 직접 남긴다.
 // 파싱이 깨져도 원문은 남으므로 나중에 손으로 복구할 수 있다.
 // (2026-08-05 취소 문자 한 건이 통째로 유실됐는데 원인을 확인할 방법이 없어서 붙였다)
+// LOG_ENDPOINT가 설정되기 전에는 아무것도 보내지 않는다.
+// Apps Script에 log 분기가 없는 상태로 보내면 로그가 결제 데이터로 오인돼
+// 시트에 빈 행이 쌓인다. 분기를 먼저 넣고 나서 환경변수를 채울 것.
 const 로그남기기 = async (기록: {
   결과: '성공' | '실패' | '무시';
   원문: string;
   비고?: string;
 }) => {
+  const endpoint = process.env.LOG_ENDPOINT;
+  if (!endpoint) return;
   try {
-    await fetch(process.env.API_ENDPOINT || '', {
+    await fetch(endpoint, {
       method: 'POST',
       body: JSON.stringify({
         type: 'log',

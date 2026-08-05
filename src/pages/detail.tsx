@@ -13,7 +13,9 @@ const Detail = ({ date }: { date: string }) => {
       fetch(
         `/api/usages-list?name=${encodeURIComponent(
           window.localStorage.getItem('loginInfo') || ''
-        )}&card=${window.localStorage.getItem('cardInfo') || ''}&date=${date}`
+        )}&card=${encodeURIComponent(
+          window.localStorage.getItem('cardInfo') || ''
+        )}&date=${date}`
       )
         .then((res) => {
           return res.json();

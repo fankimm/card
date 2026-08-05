@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
-import { isMaskedNameMatch } from '../lib/user-match';
+import { isMaskedNameMatch, 재발급카드찾기 } from '../lib/user-match';
 
 const Login = () => {
   const router = useRouter();
@@ -28,6 +28,9 @@ const Login = () => {
     }
     setError(null);
     setChecking(true);
+    // 카드 재발급으로 뒷 4자리가 바뀌어도 과거 내역이 계속 보이도록,
+    // 같은 사람이 쓰던 옛 카드 번호를 뒤에 이어 붙여 함께 저장한다. 맨 앞이 현재 카드.
+    let cardsToSave = trimmedCard;
     try {
       // 방어로직: 이 카드번호로 기록된 내역의 이름이
       // 입력한 이름과 (마스킹 감안하고) 일치하는지 검증
@@ -35,6 +38,7 @@ const Login = () => {
       const allData = (data?.allData || []) as {
         user?: string;
         cardNumber?: string;
+        date?: string;
       }[];
       const cardItems = allData.filter(
         (i) => String(i.cardNumber || '').trim() === trimmedCard
@@ -47,6 +51,22 @@ const Login = () => {
         setChecking(false);
         return;
       }
+      const 옛카드 = 재발급카드찾기(allData, trimmedName, trimmedCard);
+      // 같은 기기에서 같은 이름으로 다시 로그인하면 전에 등록해둔 번호도 이어받는다
+      const 이전등록 =
+        isMaskedNameMatch(
+          window.localStorage.getItem('loginInfo') || '',
+          trimmedName
+        ) && window.localStorage.getItem('cardInfo')
+          ? (window.localStorage.getItem('cardInfo') as string).split(',')
+          : [];
+      cardsToSave = Array.from(
+        new Set(
+          [trimmedCard, ...옛카드, ...이전등록]
+            .map((c) => c.trim())
+            .filter(Boolean)
+        )
+      ).join(',');
       // 받은 데이터를 홈 캐시에 미리 넣어 첫 화면을 즉시 그리게 한다
       if (allData.length > 0) {
         try {
@@ -60,7 +80,7 @@ const Login = () => {
       // 검증 실패(네트워크 등) 시에는 로그인 자체는 허용
     }
     window.localStorage.setItem('loginInfo', trimmedName);
-    window.localStorage.setItem('cardInfo', trimmedCard);
+    window.localStorage.setItem('cardInfo', cardsToSave);
     window.dispatchEvent(new Event('login'));
     router.push('/');
   };

@@ -18,6 +18,7 @@ import {
   Shuffle,
   EyeOff,
   Eye,
+  CreditCard,
 } from 'lucide-react';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import AdBanner from '@/components/AdBanner';
@@ -26,7 +27,7 @@ import SeasonalEffect from '@/components/SeasonalEffect';
 import HeatHaze from '@/components/HeatHaze';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
-import { isSameUser } from '../lib/user-match';
+import { isSameUser, 카드목록파싱, 재발급카드찾기 } from '../lib/user-match';
 import { 월별내역추리기, 누락의심일찾기 } from '../lib/usage-filter';
 interface HomeProps {
   date: string;
@@ -734,6 +735,9 @@ export default function Home({ date, setDate }: HomeProps) {
 
   const [highlightUpdated, setHighlightUpdated] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // 재발급으로 늘어난 내 카드 뒷 4자리들. 자동 감지가 틀렸을 때 직접 고칠 수 있게 설정에 노출한다.
+  const [내카드목록, set내카드목록] = useState<string[]>([]);
+  const [카드입력, set카드입력] = useState('');
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const showSkeleton = loading && !originData;
   const handleSearch = useCallback(() => {
@@ -776,17 +780,31 @@ export default function Home({ date, setDate }: HomeProps) {
     if (!hadCache) setLoading(true);
     fetch(
       `/api/get-total-fee?name=${encodeURIComponent(login)}&card=${
-        loginCard || ''
+        encodeURIComponent(loginCard || '')
       }&date=${date}`
     )
       .then((res) => res.json())
       .then((data) => {
         setAllData(data.allData);
+        // 카드를 재발급받아 뒷 4자리가 바뀌었으면 알아서 내 카드 목록에 추가한다.
+        // (등록 안 하고 있으면 새 카드로 긁은 내역이 통째로 안 잡힌다)
+        let 내카드 = loginCard;
+        const 새카드 = 재발급카드찾기(
+          data.allData || [],
+          login.trim(),
+          loginCard
+        );
+        if (새카드.length > 0) {
+          내카드 = [...카드목록파싱(loginCard), ...새카드].join(',');
+          try {
+            window.localStorage.setItem('cardInfo', 내카드);
+          } catch {}
+        }
         // 최신 allData로 파생 데이터 재계산
         const monthItems = 월별내역추리기<IOriginData>(
           data.allData || [],
           login.trim(),
-          loginCard,
+          내카드,
           date
         );
         const sum = monthItems.reduce(
@@ -812,6 +830,22 @@ export default function Home({ date, setDate }: HomeProps) {
         setLoading(false);
       });
   }, [date]);
+  // 설정을 열 때마다 저장된 카드 목록을 다시 읽는다(조회 중에 자동으로 늘어날 수 있어서)
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+    set내카드목록(카드목록파싱(window.localStorage.getItem('cardInfo')));
+    set카드입력('');
+  }, [isSettingsOpen]);
+  const 카드목록저장 = useCallback(
+    (list: string[]) => {
+      try {
+        window.localStorage.setItem('cardInfo', list.join(','));
+      } catch {}
+      set내카드목록(list);
+      handleSearch();
+    },
+    [handleSearch]
+  );
   useEffect(() => {
     const loginInfo = window.localStorage.getItem('loginInfo');
     const cardInfo = window.localStorage.getItem('cardInfo');
@@ -1863,6 +1897,70 @@ export default function Home({ date, setDate }: HomeProps) {
                   <Moon className="w-5 h-5" />
                   <span>라이트/다크 전환</span>
                 </button>
+                {hasSession && (
+                  <div className="surface rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5" />
+                      <span>내 카드 뒷 4자리</span>
+                    </div>
+                    <div className="subText text-xs leading-relaxed">
+                      카드를 새로 받아 번호가 바뀌어도 여기 적힌 번호는 모두 내
+                      내역으로 봅니다. 예전 카드 번호를 지우면 그때 쓴 내역도 안
+                      보이게 됩니다.
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {내카드목록.map((c, idx) => (
+                        <div
+                          key={c}
+                          className="flex items-center justify-between text-sm py-1"
+                        >
+                          <span>
+                            {c}
+                            {idx === 0 && (
+                              <span className="subText ml-2 text-xs">현재</span>
+                            )}
+                          </span>
+                          {내카드목록.length > 1 && (
+                            <button
+                              className="button text-xs px-2 py-1"
+                              onClick={() =>
+                                카드목록저장(내카드목록.filter((x) => x !== c))
+                              }
+                            >
+                              삭제
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 min-w-0 bg-transparent border border-[rgb(var(--border))] rounded-xl px-3 py-2 outline-none text-sm"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="예전 카드 4자리"
+                        value={카드입력}
+                        onChange={(e) =>
+                          set카드입력(e.target.value.replace(/\D/g, ''))
+                        }
+                      />
+                      <button
+                        className="button text-sm px-3"
+                        disabled={
+                          !/^\d{4}$/.test(카드입력) ||
+                          내카드목록.includes(카드입력)
+                        }
+                        onClick={() => {
+                          카드목록저장([...내카드목록, 카드입력]);
+                          set카드입력('');
+                        }}
+                      >
+                        추가
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <button
                   className="surface rounded-xl p-4 flex items-center gap-2 hover:opacity-90"
                   onClick={() => {

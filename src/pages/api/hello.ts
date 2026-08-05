@@ -7,12 +7,59 @@ import timezone from 'dayjs/plugin/timezone';
 import util from 'util';
 import { getData } from './get-total-fee';
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Vercel 무료 티어라 점심시간대 로그가 금방 밀려 못 본다.
+// 그래서 수신 원문과 처리 결과를 시트의 로그 탭에 직접 남긴다.
+// 파싱이 깨져도 원문은 남으므로 나중에 손으로 복구할 수 있다.
+// (2026-08-05 취소 문자 한 건이 통째로 유실됐는데 원인을 확인할 방법이 없어서 붙였다)
+const 로그남기기 = async (기록: {
+  결과: '성공' | '실패' | '무시';
+  원문: string;
+  비고?: string;
+}) => {
+  try {
+    await fetch(process.env.API_ENDPOINT || '', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'log',
+        createdAt: dayjs().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss'),
+        결과: 기록.결과,
+        원문: 기록.원문,
+        비고: 기록.비고 || '',
+      }),
+    });
+  } catch (err) {
+    // 로그 전송이 실패해도 본 처리를 막지는 않는다
+    console.log('로그 전송 실패', err);
+  }
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<any>
 ) {
-  dayjs.extend(utc);
-  dayjs.extend(timezone);
+  const 원문 =
+    typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? null);
+  try {
+    await 처리(req, res, 원문);
+  } catch (err) {
+    // 파싱 단계에서 터져도 원문은 남긴다 — 이게 없으면 문자가 통째로 증발한다
+    const 메시지 = err instanceof Error ? err.message : String(err);
+    console.log('처리 실패', 메시지);
+    await 로그남기기({ 결과: '실패', 원문, 비고: 메시지 });
+    if (!res.writableEnded) {
+      res.status(500).json({ message: 메시지 });
+    }
+  }
+}
+
+async function 처리(
+  req: NextApiRequest,
+  res: NextApiResponse<any>,
+  원문: string
+) {
   const supabase = createClient(
     process.env.SUPABASE_URL || '',
     process.env.SUPABASE_ANON_KEY || ''
@@ -60,6 +107,7 @@ export default async function handler(
   );
 
   if (time > '15:00:00') {
+    await 로그남기기({ 결과: '무시', 원문, 비고: `점심시간 아님 (${time})` });
     res.status(200).json({ message: '점심시간이 아닙니다.' });
     return;
   }
@@ -110,10 +158,27 @@ export default async function handler(
     if (data?.message === '성공') {
       global.cachedData = cache;
       console.log('업데이트 후 셋캐시');
+      await 로그남기기({
+        결과: '성공',
+        원문,
+        비고: `${confirmType} ${cardNumber} ${user} ${fee}원 ${place}`,
+      });
+    } else {
+      // 시트가 저장을 못 했는데 200으로 넘어가면 문자가 조용히 사라진다
+      await 로그남기기({
+        결과: '실패',
+        원문,
+        비고: `시트 응답: ${JSON.stringify(data)}`,
+      });
     }
     res.status(200).json(param);
   } catch (err) {
     console.log(err);
+    await 로그남기기({
+      결과: '실패',
+      원문,
+      비고: err instanceof Error ? err.message : String(err),
+    });
     res.status(500).json(param);
   }
   // supabase 로직

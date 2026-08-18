@@ -36,7 +36,9 @@ export const 서울시각 = (dateHeader: string | null) =>
 // 기다림은 상한을 둔다. 서버리스 실행 시간이 있으니 몇 초 이상은 기다리지 않고,
 // 그보다 멀면 그냥 진행한다(자정 실행이 아니라 낮에 수동으로 부른 경우).
 export const 자정까지남은ms = (서버시간: dayjs.Dayjs, 최대대기ms: number) => {
-  const 남은 = 서버시간.endOf('day').diff(서버시간) + 300; // 자정 넘긴 직후로 여유
+  // Date 헤더는 초 단위라 서버의 실제 시각은 여기서 최대 1초 뒤일 수 있다.
+  // 자정 직전에 쏘느니 조금 지나서 쏘는 게 안전하므로 250ms 여유를 둔다.
+  const 남은 = 서버시간.endOf('day').diff(서버시간) + 250;
   return 남은 > 0 && 남은 <= 최대대기ms ? 남은 : 0;
 };
 
@@ -100,24 +102,25 @@ export default async function handler(
     let { json, 서버시간 } = await 스케줄조회(
       dayjs().tz('Asia/Seoul').format('YYYY-MM')
     );
+    // Date 헤더를 읽은 순간을 우리 시계로도 찍어둔다. 아래 준비 작업에 걸린
+    // 시간만큼 빼고 자야 정확히 자정에 깬다.
+    const 기준시각ms = Date.now();
 
-    // 서버가 아직 자정을 안 넘겼으면 넘어갈 때까지만 기다렸다가 다시 받는다.
-    // (월말이면 yearMonth 도 바뀌므로 재조회가 맞다)
-    const 최대대기ms = Number(process.env.PICKSEAT_MAX_WAIT_MS || 8000);
+    const 최대대기ms = Number(process.env.PICKSEAT_MAX_WAIT_MS || 25000);
     const 대기ms = 자정까지남은ms(서버시간, 최대대기ms);
-    if (대기ms > 0) {
-      console.log(`서버가 아직 ${서버시간.format('HH:mm:ss')} — ${대기ms}ms 대기`);
-      await new Promise((r) => setTimeout(r, 대기ms));
-      ({ json, 서버시간 } = await 스케줄조회(서버시간.add(대기ms, 'ms').format('YYYY-MM')));
-    }
+    const 목표시각 = 서버시간.add(대기ms, 'ms');
+    const 기준일 = 목표시각.format(dateFormat);
+    console.log(
+      `서버 ${서버시간.format('HH:mm:ss')} → 목표 ${기준일}, 대기 ${대기ms}ms`
+    );
 
-    // 이 값이 "오늘"의 기준. Vercel 시계도 폰 시계도 아니다.
-    const 기준일 = 서버시간.format(dateFormat);
-    console.log('서버 기준 오늘:', 기준일, 서버시간.format('HH:mm:ss'));
+    // 월이 바뀌는 자정(8/31 → 9/1)이면 다음 달 스케줄이 필요하다. 대기 전에 미리.
+    if (목표시각.format('YYYY-MM') !== 서버시간.format('YYYY-MM')) {
+      ({ json } = await 스케줄조회(목표시각.format('YYYY-MM')));
+    }
 
     const officeDates: string[] = json?.[2]?.result?.data?.[0]?.officeDates;
     const dayOffDates: string[] = json?.[2]?.result?.data?.[0]?.dayOffDates;
-
     if (officeDates === undefined) {
       throw new Error('출근일 데이터 가져오기 실패.');
     }
@@ -126,12 +129,13 @@ export default async function handler(
       .filter((day) => !(dayOffDates || []).includes(day))
       .includes(기준일);
     if (!오늘출근일임) {
+      // 출근일이 아니면 기다릴 이유가 없다
       return res.status(200).json({
         ok: false,
         error: '오늘 출근일이 아닙니다.',
         runAt: 기준일,
         serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
-        waitedMs: 대기ms,
+        waitedMs: 0,
       });
     }
 
@@ -179,6 +183,19 @@ export default async function handler(
       throw new Error('세션 토큰을 찾지 못했습니다.');
     }
 
+    // ── 여기까지가 준비. 인증은 자정 전에 끝내둔다. ──
+    // 예전엔 자정이 지난 뒤에야 스케줄→csrf→로그인→checkIn 을 순차로 했다.
+    // 왕복 4번이라 실제 예약이 0.8~1.3초 늦게 도착했다. 같은 자리를 노리는
+    // 사람이 미리 준비하고 정각에 쏘면 그만큼 밀린다.
+    // 이제 남은 건 checkIn 한 번뿐이다.
+    let 실제대기ms = 0;
+    if (대기ms > 0) {
+      실제대기ms = Math.max(0, 기준시각ms + 대기ms - Date.now());
+      if (실제대기ms > 0) {
+        await new Promise((r) => setTimeout(r, 실제대기ms));
+      }
+    }
+
     const reserveRes = await fetch(
       'https://pickseat.purple.io/api/trpc/checkIn?batch=1',
       {
@@ -208,7 +225,7 @@ export default async function handler(
           seatId,
           runAt: 기준일,
           serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
-          waitedMs: 대기ms,
+          waitedMs: Math.round(실제대기ms),
           data: reserveJson,
         });
     }
@@ -218,7 +235,7 @@ export default async function handler(
       seatId,
       runAt: 기준일,
       serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
-      waitedMs: 대기ms,
+      waitedMs: Math.round(실제대기ms),
       data: reserveJson,
     });
   } catch (err: any) {

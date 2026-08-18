@@ -1,5 +1,5 @@
 declare module 'set-cookie-parser' {
-  interface Cookie {
+  export interface Cookie {
     name: string;
     value: string;
     path?: string;
@@ -11,12 +11,14 @@ declare module 'set-cookie-parser' {
     sameSite?: 'strict' | 'lax' | 'none';
   }
 
-  function parse(
+  // map 옵션에 따라 반환 모양이 달라서 오버로드로 나눠 둔다.
+  // 하나의 유니온으로 두면 호출부에서 매번 캐스팅해야 한다.
+  export function parse(
     input: string[] | string,
-    options?: { map?: boolean }
-  ): Cookie[] | Record<string, Cookie>;
-
-  export = {
-    parse,
-  };
+    options?: { map?: false }
+  ): Cookie[];
+  export function parse(
+    input: string[] | string,
+    options: { map: true }
+  ): Record<string, Cookie>;
 }

@@ -20,29 +20,35 @@ import {
   Eye,
   CreditCard,
 } from 'lucide-react';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import AdBanner from '@/components/AdBanner';
 import Twemoji from '@/components/Twemoji';
 import SeasonalEffect from '@/components/SeasonalEffect';
 import HeatHaze from '@/components/HeatHaze';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
-import { isSameUser, 카드목록파싱, 재발급카드찾기 } from '../lib/user-match';
-import { 월별내역추리기, 누락의심일찾기 } from '../lib/usage-filter';
+import { 카드목록파싱 } from '../lib/user-match';
+import {
+  월별내역추리기,
+  누락의심일찾기,
+  점심시간대,
+} from '../lib/usage-filter';
 interface HomeProps {
   date: string;
   setDate: Function;
 }
-export interface IOriginData {
-  id: string;
-  createdAt: string;
+// 통계 "전체" 랭킹용. 서버가 이름·카드번호를 떼고 내려주는 모양이다.
+export interface IPublicUsage {
   confirmType: string;
-  cardNumber: string;
-  user: string;
   date: string;
   time: string;
   fee: string;
   place: string;
+}
+export interface IOriginData extends IPublicUsage {
+  id: string;
+  createdAt: string;
+  cardNumber: string;
+  user: string;
 }
 
 function SwipeableListItem({
@@ -232,33 +238,28 @@ function SwipeableListItem({
 }
 
 function Recommend({
-  allData,
+  myData,
   date,
 }: {
-  allData?: IOriginData[];
+  myData?: IOriginData[];
   date: string;
 }) {
   // Hooks must be called unconditionally
   const [index, setIndex] = useState(0);
   const viewedWithoutAdRef = useRef(0);
+  // 렌더마다 새로 굴리면 "랜덤 즐겨찾기"가 화면을 건드릴 때마다 바뀐다. 마운트 때 한 번만.
+  const [randomSeed] = useState(() => Math.random());
 
-  if (!allData || allData.length === 0) {
+  if (!myData || myData.length === 0) {
     return (
       <div className="subText">데이터가 없어 추천을 생성할 수 없어요.</div>
     );
   }
-  const login =
-    typeof window !== 'undefined'
-      ? window.localStorage.getItem('loginInfo')?.trim()
-      : '';
-  const loginCard =
-    typeof window !== 'undefined'
-      ? window.localStorage.getItem('cardInfo') || undefined
-      : undefined;
   const month = dayjs();
-  const all = allData
-    .filter((i) => (login ? isSameUser(i, login, loginCard) : true))
-    .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
+  // myData는 서버에서 이미 내 것만 걸러서 준다.
+  const all = myData.filter(
+    (i) => 점심시간대(i.time)
+  );
   if (all.length === 0) {
     return <div className="subText">사용자 데이터가 부족해요.</div>;
   }
@@ -431,7 +432,7 @@ function Recommend({
   const randomTop = (() => {
     const top5 = byCountOverallDesc.slice(0, 5);
     if (top5.length === 0) return null;
-    const pick = top5[Math.floor(Math.random() * top5.length)];
+    const pick = top5[Math.floor(randomSeed * top5.length)];
     return {
       label: '랜덤 즐겨찾기',
       place: pick.place,
@@ -510,26 +511,9 @@ function Recommend({
 }
 
 export default function Home({ date, setDate }: HomeProps) {
-  dayjs.extend(relativeTime);
-  const monthName = [
-    'JANUARY',
-    'FEBURARY',
-    'MARCH',
-    'APRIL',
-    'MAY',
-    'JUNE',
-    'JULY',
-    'AUGUST',
-    'SEPTEMBER',
-    'OCTOBER',
-    'NOVERMBER',
-    'DECEMBER',
-  ];
-  const [total, setTotal] = useState<number | undefined>(undefined);
   const [originData, setOriginData] = useState<IOriginData[] | undefined>(
     undefined
   );
-  const [totalLength, setTotalLength] = useState<number | undefined>(undefined);
   const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
@@ -545,7 +529,11 @@ export default function Home({ date, setDate }: HomeProps) {
   const [출근일, set출근일] = useState<string[] | undefined>(undefined);
   const [남은일수, set남은일수] = useState<number | undefined>(undefined);
   const [미지원출근일, set미지원출근일] = useState<string[]>([]);
-  const [allData, setAllData] = useState<IOriginData[] | undefined>(undefined);
+  // 내 전체 내역(월 무관)과, 이름·카드번호를 뺀 전원 익명 내역. 서버가 갈라서 준다.
+  const [myData, setMyData] = useState<IOriginData[] | undefined>(undefined);
+  const [publicData, setPublicData] = useState<IPublicUsage[] | undefined>(
+    undefined
+  );
   const [homeHeaderIntro, setHomeHeaderIntro] = useState(false);
   const [aiInsightText, setAiInsightText] = useState<string | null>(null);
   const [aiInsightLoading, setAiInsightLoading] = useState(false);
@@ -616,6 +604,11 @@ export default function Home({ date, setDate }: HomeProps) {
       ? 'autumn'
       : 'winter';
   const [hideSeasonal, setHideSeasonal] = useState(false);
+  // 프로덕션에서는 10% 확률로만 띄운다. 렌더 본문에서 굴리면 state가 바뀔 때마다
+  // 다시 판정돼 눈꽃이 나타났다 사라졌다 한다 — 마운트 때 한 번만 정한다.
+  const [seasonalRoll] = useState(
+    () => process.env.NODE_ENV === 'development' || Math.random() < 0.1
+  );
   const monthTagline = useMemo(() => {
     const lines: Record<number, string[]> = {
       1: [
@@ -744,7 +737,17 @@ export default function Home({ date, setDate }: HomeProps) {
     const login = window.localStorage.getItem('loginInfo');
     const loginCard = window.localStorage.getItem('cardInfo') || undefined;
     if (!login) return;
-    const cacheKey = `card-usages:${login}:allData`;
+    const cacheKey = `card-usages:${login}:v2`;
+
+    const 월계산 = (rows: IOriginData[], card: string | undefined) => {
+      const monthItems = 월별내역추리기<IOriginData>(
+        rows,
+        login.trim(),
+        card,
+        date
+      );
+      setOriginData(monthItems);
+    };
 
     // 1) 로컬 캐시 먼저 반영
     let hadCache = false;
@@ -752,25 +755,12 @@ export default function Home({ date, setDate }: HomeProps) {
       const cached = window.localStorage.getItem(cacheKey);
       if (cached) {
         const parsed = JSON.parse(cached);
-        const cachedAll: IOriginData[] = Array.isArray(parsed)
-          ? parsed
-          : parsed?.allData;
-        if (cachedAll && Array.isArray(cachedAll)) {
-          setAllData(cachedAll);
-          // 월별 파생 데이터 계산
-          const monthItems = 월별내역추리기(
-            cachedAll,
-            login.trim(),
-            loginCard,
-            date
+        if (Array.isArray(parsed?.myData)) {
+          setMyData(parsed.myData);
+          setPublicData(
+            Array.isArray(parsed.publicData) ? parsed.publicData : undefined
           );
-          const sum = monthItems.reduce(
-            (acc, i) => acc + (parseInt(i.fee as any, 10) || 0),
-            0
-          );
-          setOriginData(monthItems);
-          setTotal(sum);
-          setTotalLength(monthItems.length);
+          월계산(parsed.myData, loginCard);
           hadCache = true;
         }
       }
@@ -779,46 +769,33 @@ export default function Home({ date, setDate }: HomeProps) {
     // 2) 최신 데이터 페치
     if (!hadCache) setLoading(true);
     fetch(
-      `/api/get-total-fee?name=${encodeURIComponent(login)}&card=${
-        encodeURIComponent(loginCard || '')
-      }&date=${date}`
+      `/api/get-total-fee?name=${encodeURIComponent(
+        login
+      )}&card=${encodeURIComponent(loginCard || '')}&date=${date}`
     )
       .then((res) => res.json())
       .then((data) => {
-        setAllData(data.allData);
-        // 카드를 재발급받아 뒷 4자리가 바뀌었으면 알아서 내 카드 목록에 추가한다.
+        if (!Array.isArray(data?.myData)) return;
+        setMyData(data.myData);
+        setPublicData(data.publicData);
+        // 카드를 재발급받아 뒷 4자리가 바뀌면 서버가 옛 카드를 찾아 cards에 담아 준다.
         // (등록 안 하고 있으면 새 카드로 긁은 내역이 통째로 안 잡힌다)
-        let 내카드 = loginCard;
-        const 새카드 = 재발급카드찾기(
-          data.allData || [],
-          login.trim(),
-          loginCard
-        );
-        if (새카드.length > 0) {
-          내카드 = [...카드목록파싱(loginCard), ...새카드].join(',');
+        const 내카드: string = Array.isArray(data.cards)
+          ? data.cards.join(',')
+          : loginCard || '';
+        if (내카드 && 내카드 !== loginCard) {
           try {
             window.localStorage.setItem('cardInfo', 내카드);
           } catch {}
         }
-        // 최신 allData로 파생 데이터 재계산
-        const monthItems = 월별내역추리기<IOriginData>(
-          data.allData || [],
-          login.trim(),
-          내카드,
-          date
-        );
-        const sum = monthItems.reduce(
-          (acc: number, i: IOriginData) =>
-            acc + (parseInt(i.fee as any, 10) || 0),
-          0
-        );
-        setOriginData(monthItems);
-        setTotal(sum);
-        setTotalLength(monthItems.length);
+        월계산(data.myData, 내카드);
         try {
           window.localStorage.setItem(
             cacheKey,
-            JSON.stringify(data.allData || [])
+            JSON.stringify({
+              myData: data.myData,
+              publicData: data.publicData || [],
+            })
           );
         } catch {}
         if (hadCache) {
@@ -846,6 +823,18 @@ export default function Home({ date, setDate }: HomeProps) {
     },
     [handleSearch]
   );
+  // 예전 캐시(:allData)에는 전원의 이름과 카드 뒷 4자리가 통째로 들어 있었다.
+  // 서버가 더는 안 내려주더라도 이미 기기에 저장된 건 남아 있으므로 여기서 지운다.
+  useEffect(() => {
+    try {
+      for (const key of Object.keys(window.localStorage)) {
+        if (key.startsWith('card-usages:') && key.endsWith(':allData')) {
+          window.localStorage.removeItem(key);
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     const loginInfo = window.localStorage.getItem('loginInfo');
     const cardInfo = window.localStorage.getItem('cardInfo');
@@ -853,7 +842,7 @@ export default function Home({ date, setDate }: HomeProps) {
     if (loginInfo && !cardInfo) {
       window.localStorage.removeItem('loginInfo');
       try {
-        window.localStorage.removeItem(`card-usages:${loginInfo}:allData`);
+        window.localStorage.removeItem(`card-usages:${loginInfo}:v2`);
       } catch {}
       setHasSession(false);
       return;
@@ -915,17 +904,17 @@ export default function Home({ date, setDate }: HomeProps) {
   // 출근했는데 결제가 하나도 없는 지난 날 = 카드 문자가 안 들어왔을 수 있다.
   // 실제로 4/06·6/30·7/01 결제가 이렇게 통째로 빠져 예산 초과를 뒤늦게 알았다.
   const 누락의심일 = useMemo(() => {
-    if (!allData || !출근일) return [] as string[];
+    if (!myData || !출근일) return [] as string[];
     const login = window.localStorage.getItem('loginInfo') || '';
     const card = window.localStorage.getItem('cardInfo') || '';
     return 누락의심일찾기(
-      allData,
+      myData,
       login.trim(),
       card,
       출근일,
       dayjs().format('YYYY-MM-DD')
     );
-  }, [allData, 출근일]);
+  }, [myData, 출근일]);
 
   const isCurrentMonth = dayjs(date).isSame(dayjs(), 'month');
   const remainingAmount = 월지원급액한도 - adjustedData.total;
@@ -933,22 +922,15 @@ export default function Home({ date, setDate }: HomeProps) {
     !isCurrentMonth || !남은일수 || 남은일수 <= 0 || remainingAmount <= 0
       ? null
       : Math.floor(remainingAmount / 남은일수);
+  // "내 것만" 이면 내 내역, "전체" 면 이름을 뗀 익명 내역을 본다.
+  const statsBase: IPublicUsage[] | undefined = statsUserOnly
+    ? myData
+    : publicData;
   const placeStats = useMemo(() => {
-    if (!allData) return [] as { place: string; count: number }[];
-    const login =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem('loginInfo')
-        : '';
-    const loginCard =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem('cardInfo') || undefined
-        : undefined;
-    const filtered = allData
-      ?.filter((i) =>
-        statsUserOnly && login ? isSameUser(i, login, loginCard) : true
-      )
+    if (!statsBase) return [] as { place: string; count: number }[];
+    const filtered = statsBase
       .filter((i) => i.confirmType !== '취소')
-      .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
+      .filter((i) => 점심시간대(i.time));
     const map = new Map<string, number>();
     filtered.forEach((i) => {
       const key = i.place || '기타';
@@ -957,7 +939,7 @@ export default function Home({ date, setDate }: HomeProps) {
     return Array.from(map.entries())
       .map(([place, count]) => ({ place, count }))
       .sort((a, b) => b.count - a.count);
-  }, [allData, statsUserOnly]);
+  }, [statsBase]);
   const maxPlaceCount = useMemo(() => {
     return placeStats.reduce((max, s) => (s.count > max ? s.count : max), 1);
   }, [placeStats]);
@@ -985,21 +967,10 @@ export default function Home({ date, setDate }: HomeProps) {
       badges: { master: [], casual: [] },
     };
 
-    if (!allData) return result;
-    const login =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem('loginInfo')
-        : '';
-    const loginCard =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem('cardInfo') || undefined
-        : undefined;
-    const baseFiltered = allData
-      .filter((i) =>
-        statsUserOnly && login ? isSameUser(i, login || '', loginCard) : true
-      )
+    if (!statsBase) return result;
+    const baseFiltered = statsBase
       .filter((i) => i.confirmType !== '취소')
-      .filter((i) => i.time > '10:00:00' && i.time < '16:00:00');
+      .filter((i) => 점심시간대(i.time));
 
     // 1) 요일별 패턴 (월~금)
     const yoilName: Record<number, string> = {
@@ -1118,7 +1089,7 @@ export default function Home({ date, setDate }: HomeProps) {
     result.badges = { master, casual };
 
     return result;
-  }, [allData, statsUserOnly, date]);
+  }, [statsBase, date]);
 
   // AI 인사이트 비활성화 (요청에 따라 주석 처리)
   // useEffect(() => {
@@ -1179,20 +1150,9 @@ export default function Home({ date, setDate }: HomeProps) {
     return (
       <div className="min-h-screen">
         {/* Seasonal effect: toggle-able for debug */}
-        {!hideSeasonal &&
-          (process.env.NODE_ENV === 'development' ? (
-            currentSeason === 'summer' ? null : (
-              <SeasonalEffect season={currentSeason} />
-            )
-          ) : (
-            (() => {
-              const show = Math.random() < 0.1; // 10% 확률
-              if (!show) return null;
-              return currentSeason === 'summer' ? null : (
-                <SeasonalEffect season={currentSeason} />
-              );
-            })()
-          ))}
+        {!hideSeasonal && currentSeason !== 'summer' && seasonalRoll && (
+          <SeasonalEffect season={currentSeason} />
+        )}
         <div className="sticky top-0 z-20 glass glassSolid px-2">
           <div className="max-w-2xl mx-auto h-16 flex items-center">
             {showHome && homeHeaderIntro ? (
@@ -1541,14 +1501,14 @@ export default function Home({ date, setDate }: HomeProps) {
           {showRecommend && (
             <div className="w-full max-w-2xl flex flex-col gap-3 anim-slide-up">
               <div className="surface rounded-2xl p-4">
-                {showSkeleton && !allData ? (
+                {showSkeleton && !myData ? (
                   <>
                     <div className="skeleton h-6 w-40 mb-2" />
                     <div className="skeleton h-8 w-56" />
                     <div className="skeleton h-3 w-2/3 mt-3" />
                   </>
                 ) : (
-                  <Recommend allData={allData} date={date} />
+                  <Recommend myData={myData} date={date} />
                 )}
               </div>
               <div className="surface rounded-2xl p-2" id="ad-banner-recommend">
@@ -1993,7 +1953,7 @@ export default function Home({ date, setDate }: HomeProps) {
                                 window.localStorage.getItem('loginInfo');
                               if (login) {
                                 window.localStorage.removeItem(
-                                  `card-usages:${login}:allData`
+                                  `card-usages:${login}:v2`
                                 );
                               }
                             } catch {}

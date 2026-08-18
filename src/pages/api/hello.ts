@@ -1,11 +1,9 @@
-// 데이터 추가 api
+// 카드 결제 문자 수신 웹훅. 문자 전달 앱이 원문을 여기로 POST 한다.
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import util from 'util';
-import { getData } from './get-total-fee';
+import { 초로, 코어타임 } from '../../lib/usage-filter';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -41,12 +39,31 @@ const 로그남기기 = async (기록: {
   }
 };
 
+// 이 엔드포인트는 무인증이라 아무나 가짜 결제 문자를 밀어 넣을 수 있었다.
+// INGEST_SECRET을 넣으면 그때부터 검사한다 — 문자 전달 앱의 URL을 먼저 고치고
+// 환경변수를 채워야 수신이 안 끊긴다. (LOG_ENDPOINT를 붙일 때와 같은 순서)
+const 시크릿확인 = (req: NextApiRequest) => {
+  const 기대값 = process.env.INGEST_SECRET;
+  if (!기대값) return true;
+  const 받은값 =
+    (req.headers['x-ingest-secret'] as string | undefined) ||
+    (req.query.key as string | undefined) ||
+    '';
+  return 받은값 === 기대값;
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<any>
 ) {
   const 원문 =
     typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? null);
+
+  if (!시크릿확인(req)) {
+    res.status(401).json({ message: '인증 실패' });
+    return;
+  }
+
   try {
     await 처리(req, res, 원문);
   } catch (err) {
@@ -65,26 +82,17 @@ async function 처리(
   res: NextApiResponse<any>,
   원문: string
 ) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL || '',
-    process.env.SUPABASE_ANON_KEY || ''
-  );
-  await getData();
-
   const testMessage = [
     '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n16,750원 일시불\r\n오늘은닭\r\n잔여한도: 476,000원',
     '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭',
   ];
   const testMode = '잔여한도포함'; // 잔여한도포함, 잔여한도미포함
-  //const mes = '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭'
   const isDev = process.env.NODE_ENV === 'development';
   const mock = {
     test: testMode === '잔여한도포함' ? testMessage[0] : testMessage[1],
   };
   const mes = isDev ? mock : req.body;
-  console.log('v = 0.2');
   console.log('리퀘스트', req.body);
-  console.log('리퀘스트', mes.test);
   const parseWithLine: string[] = mes.test
     .replaceAll('\r', '')
     .replaceAll('님', '')
@@ -94,7 +102,7 @@ async function 처리(
 
   const confirmType = parseWithLine[1].split(' ')[2];
   const cardNumber = parseWithLine[2].split(' ')[0];
-  const user = parseWithLine[2].split(' ')[1].split('님')[0];
+  const user = parseWithLine[2].split(' ')[1];
   const date = 잔여한도포함
     ? dayjs().tz('Asia/Seoul').format('MM/DD')
     : parseWithLine[3].split(' ')[0];
@@ -105,64 +113,46 @@ async function 처리(
     ? parseWithLine[3].split(' ')[0].replaceAll('원', '')
     : parseWithLine[4].split(' ')[0].replaceAll('원', '');
   const place = 잔여한도포함 ? parseWithLine[4] : parseWithLine[5];
-  console.log(
-    dayjs(`${dayjs().format('YYYY')}/${date}`, 'YYYY/MM/DD HH:mm:ss').format(
-      'YYYY-MM-DD'
-    )
-  );
 
-  if (time > '15:00:00') {
+  // 조회 필터와 같은 기준을 쓴다. 예전엔 여기만 문자열 비교로 15시 컷이었는데,
+  // 그러면 15~16시 결제는 시트에 아예 안 들어가면서 조회상으로는 지원 대상이라
+  // 조용히 사라졌고, '9:21' 처럼 시가 한 자리면 비교 자체가 뒤집혔다.
+  if (초로(time) >= 코어타임.끝초) {
     await 로그남기기({ 결과: '무시', 원문, 비고: `점심시간 아님 (${time})` });
     res.status(200).json({ message: '점심시간이 아닙니다.' });
     return;
   }
 
+  const 올해 = dayjs().format('YYYY');
   const param = {
     createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
     confirmType,
     cardNumber,
     user,
-    date: dayjs(`${dayjs().format('YYYY')}/${date}`, 'YYYY/MM/DD').format(
-      'YYYY-MM-DD'
-    ),
-    time: dayjs(
-      `${dayjs().format('YYYY')}/${date} ${time}:00`,
-      'YYYY/MM/DD HH:mm:ss'
-    ).format('HH:mm:ss'),
+    date: dayjs(`${올해}/${date}`).format('YYYY-MM-DD'),
+    time: dayjs(`${올해}/${date} ${time}`).format('HH:mm:ss'),
     fee: parseInt(fee),
     place,
   };
+
+  console.log('파싱결과', param);
+  if (isDev) {
+    res.status(200).json(param);
+    return;
+  }
+
   try {
-    console.log('파싱결과', param);
-    if (isDev) {
-      res.status(200).json(param);
-      return;
-    }
     const response = await fetch(process.env.API_ENDPOINT || '', {
       method: 'POST',
       body: JSON.stringify(param),
     });
     const data = await response.json();
-    const update = {
-      confirmType,
-      cardNumber,
-      user,
-      date: dayjs(`${dayjs().format('YYYY')}/${date}`, 'YYYY/MM/DD').format(
-        'YYYY-MM-DD'
-      ),
-      time: dayjs(
-        `${dayjs().format('YYYY')}/${date} ${time}:00`,
-        'YYYY/MM/DD HH:mm:ss'
-      ).format('HH:mm:ss'),
-      fee,
-      place,
-    };
-    const cachedData = global.cachedData || [];
-    const cache = [...cachedData, update];
 
     if (data?.message === '성공') {
-      global.cachedData = cache;
-      console.log('업데이트 후 셋캐시');
+      // 예전엔 캐시에 직접 한 줄 밀어 넣었는데, 시트가 매기는 id가 없어서
+      // 그 줄만 제외 버튼도 안 먹고 React key도 비었다. 그냥 캐시를 만료시켜
+      // 다음 조회 때 시트에서 id까지 온전히 받아오게 한다.
+      global.cachedAt = 0;
       await 로그남기기({
         결과: '성공',
         원문,
@@ -186,24 +176,4 @@ async function 처리(
     });
     res.status(500).json(param);
   }
-  // supabase 로직
-  // try {
-  //   console.log('파싱결과', param);
-
-  //   const { data, error } = await supabase
-  //     .from('card-usages')
-  //     .insert([param])
-  //     .select();
-  //   if (error) {
-  //     throw error;
-  //   }
-  //   if (data) {
-  //     res.status(200).json(param);
-  //   } else {
-  //     throw new Error('No data');
-  //   }
-  // } catch (err) {
-  //   console.log(err);
-  //   res.status(500).json(param);
-  // }
 }

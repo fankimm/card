@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
-import { useEffect, useRef, useState } from 'react';
-import { isMaskedNameMatch, 재발급카드찾기 } from '../lib/user-match';
+import { useState } from 'react';
+import { isMaskedNameMatch } from '../lib/user-match';
 
 const Login = () => {
   const router = useRouter();
@@ -8,15 +8,6 @@ const Login = () => {
   const [card, setCard] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  // 이름·카드번호 입력하는 동안 데이터를 미리 받아둬서 제출 시 대기를 없앤다
-  const prefetchRef = useRef<Promise<any> | null>(null);
-  useEffect(() => {
-    prefetchRef.current = fetch(
-      `/api/get-total-fee?name=&date=${new Date().toISOString().slice(0, 10)}`
-    )
-      .then((res) => res.json())
-      .catch(() => null);
-  }, []);
 
   const handleLogin = async () => {
     const trimmedName = name.trim();
@@ -28,57 +19,44 @@ const Login = () => {
     }
     setError(null);
     setChecking(true);
+
     // 카드 재발급으로 뒷 4자리가 바뀌어도 과거 내역이 계속 보이도록,
     // 같은 사람이 쓰던 옛 카드 번호를 뒤에 이어 붙여 함께 저장한다. 맨 앞이 현재 카드.
-    let cardsToSave = trimmedCard;
+    // 이름/카드 대조와 옛 카드 탐지는 전체 내역을 봐야 해서 서버가 한다.
+    let 서버카드: string[] = [trimmedCard];
     try {
-      // 방어로직: 이 카드번호로 기록된 내역의 이름이
-      // 입력한 이름과 (마스킹 감안하고) 일치하는지 검증
-      const data = (await prefetchRef.current) || undefined;
-      const allData = (data?.allData || []) as {
-        user?: string;
-        cardNumber?: string;
-        date?: string;
-      }[];
-      const cardItems = allData.filter(
-        (i) => String(i.cardNumber || '').trim() === trimmedCard
-      );
-      if (
-        cardItems.length > 0 &&
-        !cardItems.some((i) => isMaskedNameMatch(i.user, trimmedName))
-      ) {
-        setError('이름과 카드 번호가 일치하지 않아요.');
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedName, card: trimmedCard }),
+      });
+      const data = await res.json();
+      if (!data?.ok) {
+        setError(data?.message || '로그인에 실패했어요.');
         setChecking(false);
         return;
       }
-      const 옛카드 = 재발급카드찾기(allData, trimmedName, trimmedCard);
-      // 같은 기기에서 같은 이름으로 다시 로그인하면 전에 등록해둔 번호도 이어받는다
-      const 이전등록 =
-        isMaskedNameMatch(
-          window.localStorage.getItem('loginInfo') || '',
-          trimmedName
-        ) && window.localStorage.getItem('cardInfo')
-          ? (window.localStorage.getItem('cardInfo') as string).split(',')
-          : [];
-      cardsToSave = Array.from(
-        new Set(
-          [trimmedCard, ...옛카드, ...이전등록]
-            .map((c) => c.trim())
-            .filter(Boolean)
-        )
-      ).join(',');
-      // 받은 데이터를 홈 캐시에 미리 넣어 첫 화면을 즉시 그리게 한다
-      if (allData.length > 0) {
-        try {
-          window.localStorage.setItem(
-            `card-usages:${trimmedName}:allData`,
-            JSON.stringify(allData)
-          );
-        } catch {}
+      if (Array.isArray(data.cards) && data.cards.length > 0) {
+        서버카드 = data.cards.map(String);
       }
     } catch {
-      // 검증 실패(네트워크 등) 시에는 로그인 자체는 허용
+      // 네트워크 실패 시에는 로그인 자체는 허용한다
     }
+
+    // 같은 기기에서 같은 이름으로 다시 로그인하면 전에 등록해둔 번호도 이어받는다
+    const 이전등록 =
+      isMaskedNameMatch(
+        window.localStorage.getItem('loginInfo') || '',
+        trimmedName
+      ) && window.localStorage.getItem('cardInfo')
+        ? (window.localStorage.getItem('cardInfo') as string).split(',')
+        : [];
+    const cardsToSave = Array.from(
+      new Set(
+        [...서버카드, ...이전등록].map((c) => c.trim()).filter(Boolean)
+      )
+    ).join(',');
+
     window.localStorage.setItem('loginInfo', trimmedName);
     window.localStorage.setItem('cardInfo', cardsToSave);
     window.dispatchEvent(new Event('login'));

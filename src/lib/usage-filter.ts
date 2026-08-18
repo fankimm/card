@@ -48,20 +48,27 @@ export const 취소상쇄 = <T extends UsageItem>(items: T[]): T[] => {
   return items.filter((i) => i.confirmType !== '취소' && !지울승인.has(i));
 };
 
-// "11:42:00" 같은 시각을 초로 바꿔 차이를 잰다. 시가 한 자리('9:21:00')로 오는 데이터도 있다.
-const 시각차 = (a: string, b: string) => 초로(a) - 초로(b);
-const 초로 = (t: string) => {
+// "11:42:00" 같은 시각을 초로 바꾼다. 시가 한 자리('9:21:00')로 오는 데이터도 있어서,
+// 문자열로 비교하면 '9:21:00' > '10:00:00' 이 참이 되어버린다. 비교는 반드시 초로.
+export const 초로 = (t: string) => {
   const [h = '0', m = '0', s = '0'] = (t || '').split(':');
   return Number(h) * 3600 + Number(m) * 60 + Number(s);
 };
+const 시각차 = (a: string, b: string) => 초로(a) - 초로(b);
 
-// 점심 지원 대상 판정: 코어타임(10~16시) + 1회 한도 2만원.
-// 시각을 문자열로 비교하면 '9:21:00' > '10:00:00' 이 참이 되므로 초로 바꿔서 비교한다.
-export const 점심지원대상 = (item: UsageItem) => {
-  const 초 = 초로(item.time);
-  if (초 <= 10 * 3600 || 초 >= 16 * 3600) return false;
-  return Math.abs(parseInt(String(item.fee), 10) || 0) <= 20000;
+// 점심 지원 코어타임. 문자 수신(hello)·조회 API·화면이 전부 이 하나만 본다.
+// 예전엔 수신 쪽만 15시 컷이라, 15~16시 결제는 시트에 아예 안 들어가는데
+// 조회 필터상으로는 지원 대상이라 조용히 사라졌다.
+export const 코어타임 = { 시작초: 10 * 3600, 끝초: 16 * 3600 };
+export const 점심시간대 = (time: string) => {
+  const 초 = 초로(time);
+  return 초 > 코어타임.시작초 && 초 < 코어타임.끝초;
 };
+
+// 점심 지원 대상 판정: 코어타임 + 1회 한도 2만원.
+export const 점심지원대상 = (item: UsageItem) =>
+  점심시간대(item.time) &&
+  Math.abs(parseInt(String(item.fee), 10) || 0) <= 20000;
 
 // 전체 내역에서 "내 것 + 해당 월 + 점심 지원 대상"만 추린다. 취소는 상쇄해서 뺀다.
 export const 월별내역추리기 = <T extends UsageItem & { user?: string }>(

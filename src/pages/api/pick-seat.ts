@@ -28,6 +28,18 @@ export const 서울시각 = (dateHeader: string | null) =>
 
 // checkIn 응답은 배치 형식이라 [{ result: ... }] 또는 [{ error: { message } }] 로 온다.
 // 실패해도 HTTP 는 200 이므로 본문을 봐야 안다.
+// 좌석은 자정에 그날 것이 열린다. 단축어가 폰 시계로 00:00:00 에 부르는데
+// pickseat 서버가 미묘하게 느리면(23:59:5x) 아직 어제라 좌석이 안 열려 있거나
+// 어제 날짜로 잡힐 수 있다. 그래서 판단 기준을 폰/Vercel 이 아니라 pickseat 서버
+// 시각으로 두고, 자정 직전이면 넘어갈 때까지만 잠깐 기다린다.
+//
+// 기다림은 상한을 둔다. 서버리스 실행 시간이 있으니 몇 초 이상은 기다리지 않고,
+// 그보다 멀면 그냥 진행한다(자정 실행이 아니라 낮에 수동으로 부른 경우).
+export const 자정까지남은ms = (서버시간: dayjs.Dayjs, 최대대기ms: number) => {
+  const 남은 = 서버시간.endOf('day').diff(서버시간) + 300; // 자정 넘긴 직후로 여유
+  return 남은 > 0 && 남은 <= 최대대기ms ? 남은 : 0;
+};
+
 export const 예약에러찾기 = (json: unknown): string | null => {
   const rows = Array.isArray(json) ? json : [json];
   for (const r of rows) {
@@ -67,42 +79,41 @@ export default async function handler(
 
   try {
     const dateFormat = 'YYYY-MM-DD';
-    const now = dayjs().tz('Asia/Seoul');
-    console.log('현재 시간:', now.format('YYYY-MM-DD HH:mm:ss Z'));
-
-    const yearMonth = now.format(dateFormat).slice(0, 7); // "2025-05"
-    const input = {
-      1: { yearMonth },
-      2: {
-        user: { id: { _eq: userId } },
-        yearMonth: { _eq: yearMonth },
-      },
+    const 스케줄조회 = async (yearMonth: string) => {
+      const input = {
+        1: { yearMonth },
+        2: {
+          user: { id: { _eq: userId } },
+          yearMonth: { _eq: yearMonth },
+        },
+      };
+      const r = await fetch(
+        `https://pickseat.purple.io/api/trpc/scheduleForMain,dashboard,getScheduleMonthlyByUser?batch=1&input=${encodeURIComponent(
+          JSON.stringify(input)
+        )}`,
+        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+      );
+      // 판단 기준은 우리 시계가 아니라 pickseat 서버 시계다.
+      return { json: await r.json(), 서버시간: 서울시각(r.headers.get('date')) };
     };
 
-    const 출근일체크res = await fetch(
-      `https://pickseat.purple.io/api/trpc/scheduleForMain,dashboard,getScheduleMonthlyByUser?batch=1&input=${encodeURIComponent(
-        JSON.stringify(input)
-      )}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
+    let { json, 서버시간 } = await 스케줄조회(
+      dayjs().tz('Asia/Seoul').format('YYYY-MM')
     );
-    const 서버시간 = 서울시각(출근일체크res.headers.get('date'));
 
-    // 시각 제한은 두지 않는다.
-    //
-    // 예전에 `if (서버시간.hour() < 12) 실행 안 함` 이 있었다. 이름만 보면
-    // "정오 전엔 돌지 마라" 인데, dayjs 가 프로세스 타임존(Vercel=UTC)으로 시를
-    // 재는 바람에 실제로는 "KST 21시~다음날 09시에만 통과" 로 동작했다.
-    // 좌석은 자정에 열리고 단축어도 자정에 부르니, 그 오작동 덕에 우연히 맞았다.
-    // 타임존만 고치면 자정(KST 0시)이 막혀 정작 쓰던 경로가 죽는다.
-    //
-    // 실행 여부는 아래 "오늘이 출근일인가" 로 충분히 걸러진다. 시각으로 한 번 더
-    // 막을 이유가 없어서 걷어냈다. 판단 근거는 응답에 serverTime 으로 남긴다.
-    const json = await 출근일체크res.json();
+    // 서버가 아직 자정을 안 넘겼으면 넘어갈 때까지만 기다렸다가 다시 받는다.
+    // (월말이면 yearMonth 도 바뀌므로 재조회가 맞다)
+    const 최대대기ms = Number(process.env.PICKSEAT_MAX_WAIT_MS || 8000);
+    const 대기ms = 자정까지남은ms(서버시간, 최대대기ms);
+    if (대기ms > 0) {
+      console.log(`서버가 아직 ${서버시간.format('HH:mm:ss')} — ${대기ms}ms 대기`);
+      await new Promise((r) => setTimeout(r, 대기ms));
+      ({ json, 서버시간 } = await 스케줄조회(서버시간.add(대기ms, 'ms').format('YYYY-MM')));
+    }
+
+    // 이 값이 "오늘"의 기준. Vercel 시계도 폰 시계도 아니다.
+    const 기준일 = 서버시간.format(dateFormat);
+    console.log('서버 기준 오늘:', 기준일, 서버시간.format('HH:mm:ss'));
 
     const officeDates: string[] = json?.[2]?.result?.data?.[0]?.officeDates;
     const dayOffDates: string[] = json?.[2]?.result?.data?.[0]?.dayOffDates;
@@ -113,13 +124,14 @@ export default async function handler(
 
     const 오늘출근일임 = officeDates
       .filter((day) => !(dayOffDates || []).includes(day))
-      .includes(now.format(dateFormat));
+      .includes(기준일);
     if (!오늘출근일임) {
       return res.status(200).json({
         ok: false,
         error: '오늘 출근일이 아닙니다.',
-        runAt: now.format(dateFormat),
+        runAt: 기준일,
         serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
+        waitedMs: 대기ms,
       });
     }
 
@@ -194,7 +206,9 @@ export default async function handler(
           ok: false,
           error: 예약에러,
           seatId,
+          runAt: 기준일,
           serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
+          waitedMs: 대기ms,
           data: reserveJson,
         });
     }
@@ -202,7 +216,9 @@ export default async function handler(
     return res.status(200).json({
       ok: true,
       seatId,
+      runAt: 기준일,
       serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
+      waitedMs: 대기ms,
       data: reserveJson,
     });
   } catch (err: any) {

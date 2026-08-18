@@ -21,10 +21,8 @@ declare module 'dayjs' {
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36';
 
-// 응답의 Date 헤더(GMT)를 서울 시각으로. 로컬 시계를 안 믿으려고 서버 시간을 쓰는데,
-// dayjs(헤더).hour() 는 프로세스 타임존을 따른다. Vercel은 UTC라 KST보다 9시간 이르게
-// 나오고, 그래서 "12시 이후에만 실행" 조건이 KST 21시까지 막고 있었다.
-// (내 맥에서는 Asia/Seoul 이라 제대로 보여서 안 드러났다)
+// 응답의 Date 헤더(GMT)를 서울 시각으로. 로컬 시계를 안 믿으려고 서버 시간을 쓴다.
+// dayjs(헤더).hour() 는 프로세스 타임존을 따르므로(Vercel=UTC) 반드시 명시할 것.
 export const 서울시각 = (dateHeader: string | null) =>
   dayjs(dateHeader ?? undefined).tz('Asia/Seoul');
 
@@ -93,17 +91,17 @@ export default async function handler(
       }
     );
     const 서버시간 = 서울시각(출근일체크res.headers.get('date'));
-    const 시 = 서버시간.hour();
-    if (시 < 12) {
-      const result = {
-        success: true,
-        canProceed: false,
-        reason: '아직 12시 전이라 실행 안 함',
-        serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
-      };
-      console.log('result:', result);
-      return res.status(200).json(result);
-    }
+
+    // 시각 제한은 두지 않는다.
+    //
+    // 예전에 `if (서버시간.hour() < 12) 실행 안 함` 이 있었다. 이름만 보면
+    // "정오 전엔 돌지 마라" 인데, dayjs 가 프로세스 타임존(Vercel=UTC)으로 시를
+    // 재는 바람에 실제로는 "KST 21시~다음날 09시에만 통과" 로 동작했다.
+    // 좌석은 자정에 열리고 단축어도 자정에 부르니, 그 오작동 덕에 우연히 맞았다.
+    // 타임존만 고치면 자정(KST 0시)이 막혀 정작 쓰던 경로가 죽는다.
+    //
+    // 실행 여부는 아래 "오늘이 출근일인가" 로 충분히 걸러진다. 시각으로 한 번 더
+    // 막을 이유가 없어서 걷어냈다. 판단 근거는 응답에 serverTime 으로 남긴다.
     const json = await 출근일체크res.json();
 
     const officeDates: string[] = json?.[2]?.result?.data?.[0]?.officeDates;
@@ -121,6 +119,7 @@ export default async function handler(
         ok: false,
         error: '오늘 출근일이 아닙니다.',
         runAt: now.format(dateFormat),
+        serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
       });
     }
 
@@ -191,10 +190,21 @@ export default async function handler(
     if (예약에러) {
       return res
         .status(200)
-        .json({ ok: false, error: 예약에러, seatId, data: reserveJson });
+        .json({
+          ok: false,
+          error: 예약에러,
+          seatId,
+          serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
+          data: reserveJson,
+        });
     }
 
-    return res.status(200).json({ ok: true, seatId, data: reserveJson });
+    return res.status(200).json({
+      ok: true,
+      seatId,
+      serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
+      data: reserveJson,
+    });
   } catch (err: any) {
     console.error(err);
     return res.status(500).json({ ok: false, error: err.message });

@@ -12,21 +12,19 @@ afterAll(() => {
 
 describe('서울시각', () => {
   // 2026-08-18 프로덕션에서 실제로 받은 헤더. 한국은 15:57 인데
-  // dayjs(헤더).hour() 가 6을 돌려줘서 "12시 이후" 조건이 계속 막고 있었다.
+  // dayjs(헤더).hour() 는 6을 돌려준다(Vercel=UTC).
   it('GMT 헤더를 서울 기준 시로 읽는다', () => {
     const t = 서울시각('Tue, 18 Aug 2026 06:57:37 GMT');
     expect(t.hour()).toBe(15);
     expect(t.format('YYYY-MM-DD HH:mm:ss')).toBe('2026-08-18 15:57:37');
   });
 
-  it('점심시간대 실행 조건(12시 이후)이 KST 기준으로 판정된다', () => {
-    // KST 12:30 = UTC 03:30 — 예전 코드는 3 < 12 라 실행을 막았다
-    expect(서울시각('Tue, 18 Aug 2026 03:30:00 GMT').hour()).toBe(12);
-    expect(서울시각('Tue, 18 Aug 2026 03:30:00 GMT').hour() < 12).toBe(false);
-
-    // KST 09:00 = UTC 00:00 — 이건 실제로 막혀야 한다
-    expect(서울시각('Tue, 18 Aug 2026 00:00:00 GMT').hour()).toBe(9);
-    expect(서울시각('Tue, 18 Aug 2026 00:00:00 GMT').hour() < 12).toBe(true);
+  // 좌석은 자정에 열리고 단축어도 그때 부른다. 자정 KST = 전날 UTC 15시라,
+  // 시각으로 실행을 막는 조건을 두면 여기서 걸린다. 그래서 조건 자체를 걷어냈다.
+  it('자정 실행 시각을 KST 0시로 읽는다', () => {
+    const 자정 = 서울시각('Mon, 17 Aug 2026 15:00:00 GMT');
+    expect(자정.hour()).toBe(0);
+    expect(자정.format('YYYY-MM-DD HH:mm')).toBe('2026-08-18 00:00');
   });
 
   it('날짜 경계도 서울 기준으로 넘어간다', () => {

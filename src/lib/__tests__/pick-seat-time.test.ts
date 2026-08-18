@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { 서울시각 } from '../../pages/api/pick-seat';
+import { 서울시각, 예약에러찾기 } from '../../pages/api/pick-seat';
 
 // Vercel은 UTC로 돈다. 개발 맥은 Asia/Seoul 이라 이 차이가 로컬에서는 안 드러난다.
 const 원래TZ = process.env.TZ;
@@ -38,5 +38,27 @@ describe('서울시각', () => {
 
   it('헤더가 없어도 던지지 않는다', () => {
     expect(서울시각(null).isValid()).toBe(true);
+  });
+});
+
+describe('예약에러찾기', () => {
+  // 2026-08-18 실제 응답. HTTP 200 인데 본문에 에러가 담겨 온다.
+  it('배치 응답 안의 에러를 꺼낸다', () => {
+    const 실제응답 = [
+      {
+        error: {
+          message: '[GraphQL] 이미 예약된 좌석입니다.',
+          code: -32603,
+          data: { code: 'INTERNAL_SERVER_ERROR', httpStatus: 500, path: 'checkIn' },
+        },
+      },
+    ];
+    expect(예약에러찾기(실제응답)).toBe('이미 예약된 좌석입니다.');
+  });
+
+  it('성공 응답이면 null', () => {
+    expect(예약에러찾기([{ result: { data: { id: 1 } } }])).toBeNull();
+    expect(예약에러찾기([])).toBeNull();
+    expect(예약에러찾기(null)).toBeNull();
   });
 });

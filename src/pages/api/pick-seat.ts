@@ -28,6 +28,17 @@ const UA =
 export const 서울시각 = (dateHeader: string | null) =>
   dayjs(dateHeader ?? undefined).tz('Asia/Seoul');
 
+// checkIn 응답은 배치 형식이라 [{ result: ... }] 또는 [{ error: { message } }] 로 온다.
+// 실패해도 HTTP 는 200 이므로 본문을 봐야 안다.
+export const 예약에러찾기 = (json: unknown): string | null => {
+  const rows = Array.isArray(json) ? json : [json];
+  for (const r of rows) {
+    const msg = (r as any)?.error?.message;
+    if (msg) return String(msg).replace(/^\[GraphQL\]\s*/, '');
+  }
+  return null;
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -173,7 +184,17 @@ export default async function handler(
     );
     const reserveJson = await reserveRes.json();
 
-    return res.status(200).json({ ok: true, data: reserveJson });
+    // pickseat 은 실패해도 HTTP 200 에 error 를 담아 돌려준다.
+    // 그걸 그대로 감싸서 ok:true 로 내보내면, 남이 먼저 앉은 날 크론이
+    // 조용히 실패하고 성공으로 기록된다. 에러가 있으면 그대로 드러낸다.
+    const 예약에러 = 예약에러찾기(reserveJson);
+    if (예약에러) {
+      return res
+        .status(200)
+        .json({ ok: false, error: 예약에러, seatId, data: reserveJson });
+    }
+
+    return res.status(200).json({ ok: true, seatId, data: reserveJson });
   } catch (err: any) {
     console.error(err);
     return res.status(500).json({ ok: false, error: err.message });

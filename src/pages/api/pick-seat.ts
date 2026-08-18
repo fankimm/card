@@ -112,7 +112,9 @@ export default async function handler(
     // 시간만큼 빼고 자야 정확히 자정에 깬다.
     const 기준시각ms = Date.now();
 
-    const 최대대기ms = Number(process.env.PICKSEAT_MAX_WAIT_MS || 25000);
+    // 단축어는 자정 정각에 부른다. 폰이 서버보다 조금 빨라 23:59:xx 로 도착해도
+    // 그냥 기다렸다 쏘도록 넉넉히 잡는다. maxDuration 60초 안에 충분히 들어간다.
+    const 최대대기ms = Number(process.env.PICKSEAT_MAX_WAIT_MS || 40000);
     const 대기ms = 자정까지남은ms(서버시간, 최대대기ms);
     const 목표시각 = 서버시간.add(대기ms, 'ms');
     const 기준일 = 목표시각.format(dateFormat);

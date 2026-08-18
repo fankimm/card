@@ -21,6 +21,13 @@ declare module 'dayjs' {
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36';
 
+// 응답의 Date 헤더(GMT)를 서울 시각으로. 로컬 시계를 안 믿으려고 서버 시간을 쓰는데,
+// dayjs(헤더).hour() 는 프로세스 타임존을 따른다. Vercel은 UTC라 KST보다 9시간 이르게
+// 나오고, 그래서 "12시 이후에만 실행" 조건이 KST 21시까지 막고 있었다.
+// (내 맥에서는 Asia/Seoul 이라 제대로 보여서 안 드러났다)
+export const 서울시각 = (dateHeader: string | null) =>
+  dayjs(dateHeader ?? undefined).tz('Asia/Seoul');
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -74,7 +81,7 @@ export default async function handler(
         },
       }
     );
-    const 서버시간 = dayjs(출근일체크res.headers.get('date'));
+    const 서버시간 = 서울시각(출근일체크res.headers.get('date'));
     const 시 = 서버시간.hour();
     if (시 < 12) {
       const result = {

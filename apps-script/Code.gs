@@ -36,8 +36,23 @@ function sheetByGid(gid) {
 }
 
 // 시트가 날짜·시간 칸을 Date로 돌려주기 때문에, 앱이 기대하는 문자열 모양으로 되돌린다.
+//
+// instanceof 를 쓰면 안 된다. 이 프로젝트 런타임에서는 getValues() 가 돌려주는 Date 에
+// value instanceof Date 가 거짓으로 떨어져, 883행 전부가 아래 String(value) 분기로 새어
+// "Wed Aug 05 2026 00:00:00 GMT+0900 (한국 표준시)" 같은 원문이 그대로 나갔다.
+// (2026-08-18 확인: 버전 37까지 올려도 증상 동일. 시트 셀 자체는 2026-08-05 로 멀쩡했다.)
+// 그래서 타입 대신 모양으로 판별한다 — 두 런타임 모두에서 동작한다.
+function isDateValue(value) {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof value.getTime === 'function' &&
+    !isNaN(value.getTime())
+  );
+}
+
 function cellText(value, column) {
-  if (value instanceof Date) {
+  if (isDateValue(value)) {
     if (column === 'date')
       return Utilities.formatDate(value, 'Asia/Seoul', 'yyyy-MM-dd');
     if (column === 'time')

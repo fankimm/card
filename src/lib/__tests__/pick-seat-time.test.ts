@@ -3,6 +3,7 @@ import {
   서울시각,
   예약에러찾기,
   자정까지남은ms,
+  자정직전인가,
 } from '../../pages/api/pick-seat';
 
 // Vercel은 UTC로 돈다. 개발 맥은 Asia/Seoul 이라 이 차이가 로컬에서는 안 드러난다.
@@ -91,5 +92,16 @@ describe('자정까지남은ms', () => {
     const t = 서울시각('Mon, 17 Aug 2026 14:59:50 GMT'); // 자정까지 10초
     expect(자정까지남은ms(t, 8000)).toBe(0);
     expect(자정까지남은ms(t, 15000)).toBeGreaterThan(9000);
+  });
+});
+
+describe('자정직전인가', () => {
+  it('자정 10분 안쪽이면 참', () => {
+    expect(자정직전인가(서울시각('Mon, 17 Aug 2026 14:59:00 GMT'))).toBe(true); // 23:59
+    expect(자정직전인가(서울시각('Mon, 17 Aug 2026 14:51:00 GMT'))).toBe(true); // 23:51
+  });
+  it('그보다 이르면 거짓 — 낮 호출은 그냥 진행', () => {
+    expect(자정직전인가(서울시각('Mon, 17 Aug 2026 14:49:00 GMT'))).toBe(false); // 23:49
+    expect(자정직전인가(서울시각('Tue, 18 Aug 2026 06:57:00 GMT'))).toBe(false); // 15:57
   });
 });

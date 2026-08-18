@@ -35,6 +35,12 @@ export const 서울시각 = (dateHeader: string | null) =>
 //
 // 기다림은 상한을 둔다. 서버리스 실행 시간이 있으니 몇 초 이상은 기다리지 않고,
 // 그보다 멀면 그냥 진행한다(자정 실행이 아니라 낮에 수동으로 부른 경우).
+// 자정을 노린 호출인데 기다리기엔 너무 이른 경우(예: 23:59:00 도착, 상한 25초).
+// 그대로 진행하면 끝나가는 오늘 자리를 잡는데, 그건 아무 의미가 없다.
+// 자정 10분 전부터는 차라리 안 잡고 이유를 알려준다.
+export const 자정직전인가 = (서버시간: dayjs.Dayjs) =>
+  서버시간.endOf('day').diff(서버시간) <= 10 * 60 * 1000;
+
 export const 자정까지남은ms = (서버시간: dayjs.Dayjs, 최대대기ms: number) => {
   // Date 헤더는 초 단위라 서버의 실제 시각은 여기서 최대 1초 뒤일 수 있다.
   // 자정 직전에 쏘느니 조금 지나서 쏘는 게 안전하므로 250ms 여유를 둔다.
@@ -113,6 +119,17 @@ export default async function handler(
     console.log(
       `서버 ${서버시간.format('HH:mm:ss')} → 목표 ${기준일}, 대기 ${대기ms}ms`
     );
+
+    if (대기ms === 0 && 자정직전인가(서버시간)) {
+      const 남은초 = Math.ceil(서버시간.endOf('day').diff(서버시간) / 1000);
+      return res.status(200).json({
+        ok: false,
+        error: `자정까지 ${남은초}초 남았습니다. 대기 상한(${최대대기ms}ms)보다 멀어서, 끝나가는 오늘 자리를 잡지 않고 종료합니다. 더 늦게 호출하거나 PICKSEAT_MAX_WAIT_MS 를 늘리세요.`,
+        runAt: null,
+        serverTime: 서버시간.format('YYYY-MM-DD HH:mm:ss'),
+        waitedMs: 0,
+      });
+    }
 
     // 월이 바뀌는 자정(8/31 → 9/1)이면 다음 달 스케줄이 필요하다. 대기 전에 미리.
     if (목표시각.format('YYYY-MM') !== 서버시간.format('YYYY-MM')) {

@@ -23,10 +23,13 @@ import {
 import AdBanner from '@/components/AdBanner';
 import Twemoji from '@/components/Twemoji';
 import SeasonalEffect from '@/components/SeasonalEffect';
+import SwipeableListItem from '@/components/SwipeableListItem';
+import Recommend from '@/components/Recommend';
 import HeatHaze from '@/components/HeatHaze';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/router';
-import { 카드목록파싱 } from '../lib/user-match';
+import type { IOriginData, IPublicUsage } from '../lib/types';
+import { useSession, 캐시키 } from '@/hooks/useSession';
 import {
   월별내역추리기,
   누락의심일찾기,
@@ -36,493 +39,33 @@ interface HomeProps {
   date: string;
   setDate: Function;
 }
-// 통계 "전체" 랭킹용. 서버가 이름·카드번호를 떼고 내려주는 모양이다.
-export interface IPublicUsage {
-  confirmType: string;
-  date: string;
-  time: string;
-  fee: string;
-  place: string;
-}
-export interface IOriginData extends IPublicUsage {
-  id: string;
-  createdAt: string;
-  cardNumber: string;
-  user: string;
-}
-
-function SwipeableListItem({
-  children,
-  itemId,
-  isExcluded,
-  disabled,
-  onToggleExclude,
-  openId,
-  setOpenId,
-  onTap,
-}: {
-  children: React.ReactNode;
-  itemId: string;
-  isExcluded: boolean;
-  disabled?: boolean;
-  onToggleExclude: () => void;
-  openId: string | null;
-  setOpenId: (id: string | null) => void;
-  onTap: () => void;
-}) {
-  const W = 72;
-  const SPRING = 'transform 0.55s cubic-bezier(0.32, 0.72, 0, 1)';
-  const isOpen = openId === itemId;
-  const isOpenRef = useRef(isOpen);
-  isOpenRef.current = isOpen;
-  const t = useRef({ sx: 0, sy: 0, swiping: false, moved: false });
-  const elRef = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!isOpen && elRef.current) {
-      elRef.current.style.transition = SPRING;
-      elRef.current.style.transform = 'translateX(0)';
-    }
-    if (btnRef.current) {
-      btnRef.current.style.transition = 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease';
-      btnRef.current.style.transform = isOpen ? 'scale(1)' : 'scale(0)';
-      btnRef.current.style.opacity = isOpen ? '1' : '0';
-    }
-  }, [isOpen]);
-
-  // Native touchmove listener for preventDefault (blocks vertical scroll during swipe)
-  useEffect(() => {
-    const el = elRef.current;
-    if (!el || disabled) return;
-    const onMove = (e: TouchEvent) => {
-      if (t.current.swiping) e.preventDefault();
-    };
-    el.addEventListener('touchmove', onMove, { passive: false });
-    return () => el.removeEventListener('touchmove', onMove);
-  }, [disabled]);
-
-  if (disabled) return <div onClick={onTap}>{children}</div>;
-
-  const BTN_SPRING = 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease';
-  const doClose = () => {
-    if (elRef.current) {
-      elRef.current.style.transition = SPRING;
-      elRef.current.style.transform = 'translateX(0)';
-    }
-    if (btnRef.current) {
-      btnRef.current.style.transition = BTN_SPRING;
-      btnRef.current.style.transform = 'scale(0)';
-      btnRef.current.style.opacity = '0';
-    }
-  };
-
-  return (
-    <div className="relative overflow-hidden rounded-xl">
-      <div
-        className="absolute right-0 top-0 bottom-0 flex items-center justify-center"
-        style={{ width: W }}
-      >
-        <button
-          ref={btnRef}
-          className={`w-14 h-14 rounded-full flex flex-col items-center justify-center gap-0.5 text-white text-[10px] font-semibold shadow-md ${
-            isExcluded ? 'bg-blue-500' : 'bg-amber-500'
-          }`}
-          style={{ transform: 'scale(0)', opacity: 0 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExclude();
-            setOpenId(null);
-            doClose();
-          }}
-        >
-          {isExcluded ? (
-            <Eye className="w-5 h-5" />
-          ) : (
-            <EyeOff className="w-5 h-5" />
-          )}
-          <span>{isExcluded ? '포함' : '제외'}</span>
-        </button>
-      </div>
-      <div
-        ref={elRef}
-        className="relative rounded-xl"
-        style={{ background: 'rgb(var(--bg-elev))' }}
-        onTouchStart={(e) => {
-          t.current = {
-            sx: e.touches[0].clientX,
-            sy: e.touches[0].clientY,
-            swiping: false,
-            moved: false,
-          };
-          if (!isOpenRef.current && openId) setOpenId(null);
-        }}
-        onTouchMove={(e) => {
-          const s = t.current;
-          const dx = e.touches[0].clientX - s.sx;
-          const dy = e.touches[0].clientY - s.sy;
-          if (!s.swiping) {
-            if (Math.abs(dy) > Math.abs(dx)) return;
-            if (Math.abs(dx) > 8) s.swiping = true;
-            else return;
-          }
-          s.moved = true;
-          const base = isOpenRef.current ? -W : 0;
-          const raw = base + dx;
-          let offset: number;
-          if (raw < -W) {
-            offset = -(W + (-raw - W) * 0.3);
-          } else {
-            offset = Math.min(0, raw);
-          }
-          if (elRef.current) {
-            elRef.current.style.transition = 'none';
-            elRef.current.style.transform = `translateX(${offset}px)`;
-          }
-          if (btnRef.current) {
-            const progress = Math.min(1, -offset / W);
-            btnRef.current.style.transition = 'none';
-            btnRef.current.style.transform = `scale(${progress})`;
-            btnRef.current.style.opacity = String(progress);
-          }
-        }}
-        onTouchEnd={() => {
-          if (!t.current.moved) return;
-          const el = elRef.current;
-          if (!el) return;
-          const x = new DOMMatrix(getComputedStyle(el).transform).m41;
-          const cw = el.parentElement?.clientWidth || 300;
-          el.style.transition = SPRING;
-          const btn = btnRef.current;
-          if (-x > cw * 0.55) {
-            el.style.transform = `translateX(-${cw}px)`;
-            setTimeout(() => {
-              onToggleExclude();
-              setOpenId(null);
-              doClose();
-            }, 350);
-          } else if (x < -30) {
-            el.style.transform = `translateX(-${W}px)`;
-            if (btn) {
-              btn.style.transition = BTN_SPRING;
-              btn.style.transform = 'scale(1)';
-              btn.style.opacity = '1';
-            }
-            setOpenId(itemId);
-          } else {
-            el.style.transform = 'translateX(0)';
-            if (btn) {
-              btn.style.transition = BTN_SPRING;
-              btn.style.transform = 'scale(0)';
-              btn.style.opacity = '0';
-            }
-            if (isOpenRef.current) setOpenId(null);
-          }
-        }}
-        onClick={() => {
-          if (t.current.moved) {
-            t.current.moved = false;
-            return;
-          }
-          if (isOpenRef.current) {
-            setOpenId(null);
-            return;
-          }
-          onTap();
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Recommend({
-  myData,
-  date,
-}: {
-  myData?: IOriginData[];
-  date: string;
-}) {
-  // Hooks must be called unconditionally
-  const [index, setIndex] = useState(0);
-  const viewedWithoutAdRef = useRef(0);
-  // 렌더마다 새로 굴리면 "랜덤 즐겨찾기"가 화면을 건드릴 때마다 바뀐다. 마운트 때 한 번만.
-  const [randomSeed] = useState(() => Math.random());
-
-  if (!myData || myData.length === 0) {
-    return (
-      <div className="subText">데이터가 없어 추천을 생성할 수 없어요.</div>
-    );
-  }
-  const month = dayjs();
-  // myData는 서버에서 이미 내 것만 걸러서 준다.
-  const all = myData.filter(
-    (i) => 점심시간대(i.time)
-  );
-  if (all.length === 0) {
-    return <div className="subText">사용자 데이터가 부족해요.</div>;
-  }
-  const thisMonth = all.filter((i) => dayjs(i.date).isSame(month, 'month'));
-
-  type PlaceStat = {
-    place: string;
-    countOverall: number;
-    totalOverall: number;
-    lastOverall: string;
-    countThisMonth: number;
-    avgOverall: number;
-  };
-  const statsMap = new Map<string, PlaceStat>();
-  all.forEach((i) => {
-    const key = i.place || '기타';
-    const prev = statsMap.get(key) || {
-      place: key,
-      countOverall: 0,
-      totalOverall: 0,
-      lastOverall: '1970-01-01',
-      countThisMonth: 0,
-      avgOverall: 0,
-    };
-    const lastOverall = dayjs(i.date).isAfter(prev.lastOverall)
-      ? i.date
-      : prev.lastOverall;
-    const next: PlaceStat = {
-      ...prev,
-      countOverall: prev.countOverall + (i.confirmType !== '취소' ? 1 : 0),
-      totalOverall:
-        prev.totalOverall +
-        (i.confirmType !== '취소' ? parseInt(i.fee as any, 10) || 0 : 0),
-      lastOverall,
-      countThisMonth:
-        prev.countThisMonth +
-        (dayjs(i.date).isSame(month, 'month') && i.confirmType !== '취소'
-          ? 1
-          : 0),
-    };
-    statsMap.set(key, next);
-  });
-  // 평균 갱신
-  statsMap.forEach((v, k) => {
-    const avg =
-      v.countOverall > 0 ? Math.round(v.totalOverall / v.countOverall) : 0;
-    statsMap.set(k, { ...v, avgOverall: avg });
-  });
-
-  const stats = Array.from(statsMap.values()).filter((s) => s.countOverall > 0);
-  if (stats.length === 0) {
-    return <div className="subText">유효한 방문 데이터가 없어요.</div>;
-  }
-
-  const currency = (n: number) => `${n.toLocaleString('ko-KR')}원`;
-  const daysSince = (iso: string) => dayjs().diff(dayjs(iso), 'day');
-
-  const byCountThisMonthDesc = [...stats].sort(
-    (a, b) => b.countThisMonth - a.countThisMonth
-  );
-  const byCountOverallDesc = [...stats].sort(
-    (a, b) => b.countOverall - a.countOverall
-  );
-  const byAvgAsc = [...stats].sort((a, b) => a.avgOverall - b.avgOverall);
-  const byAvgDesc = [...stats].sort((a, b) => b.avgOverall - a.avgOverall);
-  const byStalenessDesc = [...stats].sort(
-    (a, b) => daysSince(b.lastOverall) - daysSince(a.lastOverall)
-  );
-
-  // 1) 밸런스 추천: 적당한 빈도(2~4), 최근 방문 아님, 평균 12,000원 근접
-  const balanced = (() => {
-    const monthCounts = new Map<string, number>();
-    thisMonth.forEach((i) => {
-      if (i.confirmType === '취소') return;
-      monthCounts.set(i.place, (monthCounts.get(i.place) || 0) + 1);
-    });
-    const candidates = stats.map((s) => {
-      const cnt = monthCounts.get(s.place) || 0;
-      const freqScore = Math.max(0, 5 - Math.abs(cnt - 3));
-      const recencyPenalty = Math.min(3, daysSince(s.lastOverall) < 3 ? 3 : 0);
-      const spendModerate = Math.max(
-        0,
-        5 - Math.abs(s.avgOverall - 12000) / 3000
-      );
-      const score = freqScore + spendModerate - recencyPenalty;
-      return { s, score, cnt };
-    });
-    candidates.sort((a, b) => b.score - a.score);
-    const top = candidates[0]?.s;
-    if (!top) return null;
-    return {
-      label: '밸런스 추천',
-      place: top.place,
-      reason: `최근 ${daysSince(top.lastOverall)}일 전 방문, 평균 ${currency(
-        top.avgOverall
-      )}, 이번 달 ${monthCounts.get(top.place) || 0}회 방문`,
-    };
-  })();
-
-  // 2) 최애 픽: 이번 달 최다 방문
-  const favorite = (() => {
-    const top = byCountThisMonthDesc[0] || byCountOverallDesc[0];
-    if (!top) return null;
-    const cnt = top.countThisMonth || 0;
-    return {
-      label: '최애 픽',
-      place: top.place,
-      reason: `${dayjs().format('M')}월에 ${cnt}회 방문, 익숙한 그 맛!`,
-    };
-  })();
-
-  // 3) 숨은 맛집: 이번 달 거의 안 간 곳(0~1회) + 오래 안 간 곳
-  const hiddenGem = (() => {
-    const candidates = stats
-      .filter((s) => s.countThisMonth <= 1)
-      .sort((a, b) => daysSince(b.lastOverall) - daysSince(a.lastOverall));
-    const top = candidates[0];
-    if (!top) return null;
-    const when = daysSince(top.lastOverall);
-    return {
-      label: '숨은 맛집',
-      place: top.place,
-      reason: `이번 달엔 거의 안 갔어요. 마지막 방문 ${when}일 전`,
-    };
-  })();
-
-  // 4) 가성비 픽: 평균 결제액 최저 (방문 2회 이상 우선)
-  const budgetSaver = (() => {
-    const many = stats.filter((s) => s.countOverall >= 2);
-    const arr = (many.length > 0 ? many : stats).sort(
-      (a, b) => a.avgOverall - b.avgOverall
-    );
-    const top = arr[0];
-    if (!top) return null;
-    return {
-      label: '가성비 픽',
-      place: top.place,
-      reason: `평균 ${currency(top.avgOverall)}로 부담 없이 즐겨요`,
-    };
-  })();
-
-  // 5) 보상 픽: 평균 결제액 최고 (방문 2회 이상 우선)
-  const treatYourself = (() => {
-    const many = stats.filter((s) => s.countOverall >= 2);
-    const arr = (many.length > 0 ? many : stats).sort(
-      (a, b) => b.avgOverall - a.avgOverall
-    );
-    const top = arr[0];
-    if (!top) return null;
-    return {
-      label: '보상 픽',
-      place: top.place,
-      reason: `평균 ${currency(top.avgOverall)}, 오늘은 기분 좋게!`,
-    };
-  })();
-
-  // 6) 오랜만 픽: 마지막 방문까지 가장 오래된 곳
-  const longTimeNoSee = (() => {
-    const top = byStalenessDesc[0];
-    if (!top) return null;
-    const when = daysSince(top.lastOverall);
-    return {
-      label: '오랜만 픽',
-      place: top.place,
-      reason: `${when}일 만에 다시 가볼까요?`,
-    };
-  })();
-
-  // 7) 랜덤 즐겨찾기: 전체 최다 방문 상위 5 중 랜덤
-  const randomTop = (() => {
-    const top5 = byCountOverallDesc.slice(0, 5);
-    if (top5.length === 0) return null;
-    const pick = top5[Math.floor(randomSeed * top5.length)];
-    return {
-      label: '랜덤 즐겨찾기',
-      place: pick.place,
-      reason: `즐겨찾기 상위에서 랜덤 추천!`,
-    };
-  })();
-
-  const recs = [
-    balanced,
-    favorite,
-    hiddenGem,
-    budgetSaver,
-    treatYourself,
-    longTimeNoSee,
-    randomTop,
-  ].filter(Boolean) as { label: string; place: string; reason: string }[];
-
-  // 중복 장소 제거하여 다양성 확보
-  const unique: typeof recs = [];
-  const seen = new Set<string>();
-  for (const r of recs) {
-    if (seen.has(r.place)) continue;
-    seen.add(r.place);
-    unique.push(r);
-  }
-
-  const current = unique[index] || unique[0];
-
-  if (!current) {
-    return <div className="subText">추천 결과가 없어요.</div>;
-  }
-
-  const handleNext = () => {
-    // 첫 1회는 무료, 이후는 광고 시청 유도
-    if (viewedWithoutAdRef.current === 0) {
-      viewedWithoutAdRef.current += 1;
-      setIndex((p) => Math.min(p + 1, unique.length - 1));
-      return;
-    }
-    // 광고 트리거: 실제 보상형 광고가 없으니 배너 노출 후 약간의 대기 시점으로 대체
-    const adEl = document.getElementById('ad-banner-recommend');
-    if (adEl) {
-      adEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    // 간단한 안내 후 다음 추천 공개
-    alert('광고를 잠시 확인해 주세요. (데모)');
-    setTimeout(() => {
-      setIndex((p) => Math.min(p + 1, unique.length - 1));
-    }, 800);
-  };
-
-  return (
-    <div className="flex flex-col">
-      <div className="text-xl font-bold">오늘의 점심 추천</div>
-      <div className="mt-2 flex flex-col gap-3">
-        <div className="rounded-xl p-3 surface">
-          <div className="text-xs subText mb-1">{current.label}</div>
-          <div className="text-lg font-semibold">{current.place}</div>
-          <div className="text-xs subText mt-1">{current.reason}</div>
-        </div>
-        <div className="flex flex-col items-center">
-          <button
-            className="glassPill w-full text-center px-3 py-2 flex items-center justify-center gap-1 hover:opacity-90"
-            onClick={handleNext}
-          >
-            <Shuffle className="w-4 h-4" />
-            <span>다른 추천 보기</span>
-          </button>
-          <div className="subText text-[10px] mt-1 text-center w-full">
-            첫 1회 무료 · 이후 광고 시청
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Home({ date, setDate }: HomeProps) {
   const [originData, setOriginData] = useState<IOriginData[] | undefined>(
     undefined
   );
-  const [hasSession, setHasSession] = useState(false);
+  // 로그인 정보는 훅 하나로만 다룬다. 예전엔 localStorage 직접 접근이
+  // 렌더 본문·useMemo·핸들러에 20군데 넘게 흩어져 있었다.
+  const {
+    name: 로그인이름,
+    card: 로그인카드,
+    준비됨: 세션준비됨,
+    로그인됨,
+    카드목록: 내카드목록,
+    카드저장,
+    로그아웃,
+  } = useSession();
+  const hasSession = 세션준비됨 && 로그인됨;
   const [loading, setLoading] = useState(false);
-  const [showDetail, setShowDetail] = useState(false);
-  const [showList, setShowList] = useState(false);
   const [selectedItem, setSelectedItem] = useState<IOriginData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [showHome, setShowHome] = useState(true);
-  const [showRecommend, setShowRecommend] = useState(false);
+  // 상호배타인 세 화면을 boolean 세 개로 들고 손으로 동기화하고 있었다.
+  // (탭 하나 누를 때마다 setShowX 를 세 번씩 불렀다)
+  type Tab = 'home' | 'stats' | 'reco';
+  const [tab, setTab] = useState<Tab>('home');
+  const showHome = tab === 'home';
+  const showStats = tab === 'stats';
+  const showRecommend = tab === 'reco';
   const [statsUserOnly, setStatsUserOnly] = useState(false);
   const [showAllList, setShowAllList] = useState(false);
   const [월지원급액한도, set월지원급액한도] = useState<number>(0);
@@ -542,16 +85,6 @@ export default function Home({ date, setDate }: HomeProps) {
 
   // 출근일을 받아 이 달의 지원 한도를 정한다. 한 달 최대 12일 × 12,000원.
   // 두 군데(최초 진입 / 로그인 이벤트)에서 똑같이 부르던 것을 하나로 모았다.
-  // 세션이 켜진 뒤(SESSION_SECRET 설정) 쿠키 없이 들어오면 데이터 API가 401을 준다.
-  // 그때는 조용히 실패하지 말고 로그인 화면으로 돌려보낸다.
-  const 세션끊김 = useCallback(() => {
-    try {
-      window.localStorage.removeItem('loginInfo');
-      window.localStorage.removeItem('cardInfo');
-    } catch {}
-    setHasSession(false);
-  }, []);
-
   const 출근일불러오기 = useCallback(
     (loginInfo: string) =>
       fetch(
@@ -561,7 +94,7 @@ export default function Home({ date, setDate }: HomeProps) {
       )
         .then((res) => {
           if (res.status === 401) {
-            세션끊김();
+            로그아웃();
             return null;
           }
           return res.ok ? res.json() : Promise.reject(res);
@@ -578,15 +111,14 @@ export default function Home({ date, setDate }: HomeProps) {
           set출근일(undefined);
           set월지원급액한도(0);
         }),
-    [date, 세션끊김]
+    [date, 로그아웃]
   );
 
   // 집계 제외 항목 관리 (Google Sheets 연동)
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const fetchExcludedItems = useCallback(() => {
-    const login = typeof window !== 'undefined' ? window.localStorage.getItem('loginInfo') : '';
-    if (!login) return;
-    fetch(`/api/excluded-items?name=${encodeURIComponent(login)}`)
+    if (!로그인이름) return;
+    fetch(`/api/excluded-items?name=${encodeURIComponent(로그인이름)}`)
       .then(res => res.json())
       .then(data => {
         if (data?.data && Array.isArray(data.data)) {
@@ -594,10 +126,9 @@ export default function Home({ date, setDate }: HomeProps) {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [로그인이름]);
   const toggleExclude = useCallback((id: string) => {
-    const login = typeof window !== 'undefined' ? window.localStorage.getItem('loginInfo') : '';
-    if (!login) return;
+    if (!로그인이름) return;
     // 낙관적 업데이트
     setExcludedIds(prev => {
       const next = new Set(prev);
@@ -608,7 +139,7 @@ export default function Home({ date, setDate }: HomeProps) {
     fetch('/api/excluded-items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: login, itemId: id }),
+      body: JSON.stringify({ user: 로그인이름, itemId: id }),
     }).catch(() => {
       // 실패 시 롤백
       setExcludedIds(prev => {
@@ -738,10 +269,7 @@ export default function Home({ date, setDate }: HomeProps) {
     try {
       const payload = {
         month: dayjs(date).format('YYYY-MM'),
-        user:
-          typeof window !== 'undefined'
-            ? window.localStorage.getItem('loginInfo')
-            : undefined,
+        user: 로그인이름 ?? undefined,
         total: adjustedData.total,
         totalLength: adjustedData.totalLength,
         items: originData || [],
@@ -770,15 +298,15 @@ export default function Home({ date, setDate }: HomeProps) {
   const [highlightUpdated, setHighlightUpdated] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // 재발급으로 늘어난 내 카드 뒷 4자리들. 자동 감지가 틀렸을 때 직접 고칠 수 있게 설정에 노출한다.
-  const [내카드목록, set내카드목록] = useState<string[]>([]);
+  // 목록 자체는 useSession 이 들고 있다.
   const [카드입력, set카드입력] = useState('');
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const showSkeleton = loading && !originData;
   const handleSearch = useCallback(() => {
-    const login = window.localStorage.getItem('loginInfo');
-    const loginCard = window.localStorage.getItem('cardInfo') || undefined;
+    const login = 로그인이름;
+    const loginCard = 로그인카드 || undefined;
     if (!login) return;
-    const cacheKey = `card-usages:${login}:v2`;
+    const cacheKey = 캐시키(login);
 
     const 월계산 = (rows: IOriginData[], card: string | undefined) => {
       const monthItems = 월별내역추리기<IOriginData>(
@@ -816,7 +344,7 @@ export default function Home({ date, setDate }: HomeProps) {
     )
       .then((res) => {
         if (res.status === 401) {
-          세션끊김();
+          로그아웃();
           return null;
         }
         return res.json();
@@ -830,11 +358,7 @@ export default function Home({ date, setDate }: HomeProps) {
         const 내카드: string = Array.isArray(data.cards)
           ? data.cards.join(',')
           : loginCard || '';
-        if (내카드 && 내카드 !== loginCard) {
-          try {
-            window.localStorage.setItem('cardInfo', 내카드);
-          } catch {}
-        }
+        if (내카드 && 내카드 !== loginCard) 카드저장(내카드);
         월계산(data.myData, 내카드);
         try {
           window.localStorage.setItem(
@@ -853,46 +377,43 @@ export default function Home({ date, setDate }: HomeProps) {
       .finally(() => {
         setLoading(false);
       });
-  }, [date, 세션끊김]);
-  // 설정을 열 때마다 저장된 카드 목록을 다시 읽는다(조회 중에 자동으로 늘어날 수 있어서)
+  }, [date, 로그아웃, 로그인이름, 로그인카드, 카드저장]);
   useEffect(() => {
-    if (!isSettingsOpen) return;
-    set내카드목록(카드목록파싱(window.localStorage.getItem('cardInfo')));
-    set카드입력('');
+    if (isSettingsOpen) set카드입력('');
   }, [isSettingsOpen]);
   const 카드목록저장 = useCallback(
     (list: string[]) => {
-      try {
-        window.localStorage.setItem('cardInfo', list.join(','));
-      } catch {}
-      set내카드목록(list);
+      카드저장(list);
       handleSearch();
     },
-    [handleSearch]
+    [handleSearch, 카드저장]
   );
   useEffect(() => {
-    const loginInfo = window.localStorage.getItem('loginInfo');
-    const cardInfo = window.localStorage.getItem('cardInfo');
+    if (!세션준비됨) return;
+    const loginInfo = 로그인이름;
     // 카드번호 없는 구버전 세션은 강제 로그아웃 (이름+카드번호 로그인으로 이전)
-    if (loginInfo && !cardInfo) {
-      window.localStorage.removeItem('loginInfo');
-      try {
-        window.localStorage.removeItem(`card-usages:${loginInfo}:v2`);
-      } catch {}
-      setHasSession(false);
+    if (loginInfo && !로그인카드) {
+      로그아웃();
       return;
     }
     if (loginInfo) {
       출근일불러오기(loginInfo);
       handleSearch();
       fetchExcludedItems();
-      setHasSession(true);
       // 탭 전환 외에도 월 변경 시 상단으로 스크롤 이동
       scrollToTopFast();
-    } else {
-      setHasSession(false);
     }
-  }, [date, handleSearch, fetchExcludedItems, scrollToTopFast, 출근일불러오기]);
+  }, [
+    date,
+    handleSearch,
+    fetchExcludedItems,
+    scrollToTopFast,
+    출근일불러오기,
+    세션준비됨,
+    로그인이름,
+    로그인카드,
+    로그아웃,
+  ]);
   useEffect(() => {
     if (!출근일) return;
     const 지원가능일수 = Math.min(출근일.length, 12);
@@ -919,16 +440,14 @@ export default function Home({ date, setDate }: HomeProps) {
   // 실제로 4/06·6/30·7/01 결제가 이렇게 통째로 빠져 예산 초과를 뒤늦게 알았다.
   const 누락의심일 = useMemo(() => {
     if (!myData || !출근일) return [] as string[];
-    const login = window.localStorage.getItem('loginInfo') || '';
-    const card = window.localStorage.getItem('cardInfo') || '';
     return 누락의심일찾기(
       myData,
-      login.trim(),
-      card,
+      (로그인이름 || '').trim(),
+      로그인카드 || '',
       출근일,
       dayjs().format('YYYY-MM-DD')
     );
-  }, [myData, 출근일]);
+  }, [myData, 출근일, 로그인이름, 로그인카드]);
 
   const isCurrentMonth = dayjs(date).isSame(dayjs(), 'month');
   const remainingAmount = 월지원급액한도 - adjustedData.total;
@@ -1129,25 +648,8 @@ export default function Home({ date, setDate }: HomeProps) {
     }
   }, [showHome]);
 
-  useEffect(() => {
-    const onLogin = () => {
-      const loginInfo = window.localStorage.getItem('loginInfo');
-      if (!loginInfo) return;
-      fetchExcludedItems();
-      출근일불러오기(loginInfo).finally(() => {
-        handleSearch();
-        setHasSession(true);
-      });
-    };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('login', onLogin);
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('login', onLogin);
-      }
-    };
-  }, [date, handleSearch, fetchExcludedItems, 출근일불러오기]);
+  // 로그인 직후에도 데이터를 받는다. 세션 자체는 useSession 이 'login' 이벤트로
+  // 이미 갱신하므로, 여기서는 위 효과가 로그인이름 변화를 보고 다시 돌아 준다.
   if (hasSession) {
     return (
       <div className="min-h-screen">
@@ -1529,9 +1031,7 @@ export default function Home({ date, setDate }: HomeProps) {
                       statsUserOnly ? 'tabItemActive' : ''
                     }`}
                     onClick={() => {
-                      const loginInfo =
-                        window.localStorage.getItem('loginInfo');
-                      if (!loginInfo) {
+                      if (!로그인이름) {
                         router.push('/login');
                         return;
                       }
@@ -1928,9 +1428,7 @@ export default function Home({ date, setDate }: HomeProps) {
                 <button
                   className="surface rounded-xl p-4 flex items-center gap-2 hover:opacity-90"
                   onClick={() => {
-                    window.localStorage.removeItem('loginInfo');
-                    window.localStorage.removeItem('cardInfo');
-                    setHasSession(false);
+                    로그아웃();
                     setIsSettingsOpen(false);
                   }}
                 >
@@ -1938,8 +1436,7 @@ export default function Home({ date, setDate }: HomeProps) {
                   <span>로그아웃</span>
                 </button>
                 {process.env.NODE_ENV === 'development' &&
-                  typeof window !== 'undefined' &&
-                  window.localStorage.getItem('loginInfo') === '김지환' && (
+                  로그인이름 === '김지환' && (
                     <div className="surface rounded-xl p-4 flex flex-col gap-2">
                       <div className="text-sm font-semibold">디버그 도구</div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -1953,12 +1450,8 @@ export default function Home({ date, setDate }: HomeProps) {
                           className="button"
                           onClick={() => {
                             try {
-                              const login =
-                                window.localStorage.getItem('loginInfo');
-                              if (login) {
-                                window.localStorage.removeItem(
-                                  `card-usages:${login}:v2`
-                                );
+                              if (로그인이름) {
+                                window.localStorage.removeItem(캐시키(로그인이름));
                               }
                             } catch {}
                           }}
@@ -1992,9 +1485,7 @@ export default function Home({ date, setDate }: HomeProps) {
             <button
               className={`tabItem w-full ${showHome ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setShowHome(true);
-                setShowStats(false);
-                setShowRecommend(false);
+                setTab('home');
                 scrollToTopFast();
               }}
             >
@@ -2005,9 +1496,7 @@ export default function Home({ date, setDate }: HomeProps) {
             <button
               className={`tabItem w-full ${showStats ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setShowHome(false);
-                setShowRecommend(false);
-                setShowStats(true);
+                setTab('stats');
                 scrollToTopFast();
               }}
             >
@@ -2020,9 +1509,7 @@ export default function Home({ date, setDate }: HomeProps) {
                 showRecommend ? 'tabItemActive' : ''
               }`}
               onClick={() => {
-                setShowHome(false);
-                setShowStats(false);
-                setShowRecommend(true);
+                setTab('reco');
                 scrollToTopFast();
               }}
             >
@@ -2326,9 +1813,7 @@ export default function Home({ date, setDate }: HomeProps) {
             <button
               className={`tabItem w-full ${showHome ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setShowHome(true);
-                setShowStats(false);
-                setShowRecommend(false);
+                setTab('home');
                 scrollToTopFast();
               }}
             >
@@ -2339,9 +1824,7 @@ export default function Home({ date, setDate }: HomeProps) {
             <button
               className={`tabItem w-full ${showStats ? 'tabItemActive' : ''}`}
               onClick={() => {
-                setShowHome(false);
-                setShowRecommend(false);
-                setShowStats(true);
+                setTab('stats');
                 scrollToTopFast();
               }}
             >
@@ -2354,9 +1837,7 @@ export default function Home({ date, setDate }: HomeProps) {
                 showRecommend ? 'tabItemActive' : ''
               }`}
               onClick={() => {
-                setShowHome(false);
-                setShowStats(false);
-                setShowRecommend(true);
+                setTab('reco');
                 scrollToTopFast();
               }}
             >

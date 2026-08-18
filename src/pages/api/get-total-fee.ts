@@ -5,11 +5,9 @@
 // 인증 없이 부를 수 있는 이 API 하나가 로그인 방벽을 통째로 무력화하고 있었다.
 // 지금은 내 것(myData)과 이름·카드번호를 뺀 익명 내역(publicData)으로 갈라서 내보낸다.
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dayjs from 'dayjs';
-import 'dayjs/locale/ko';
 import { isSameUser, 재발급카드찾기, 카드목록파싱 } from '../../lib/user-match';
-import { 취소상쇄, 점심지원대상 } from '../../lib/usage-filter';
 import { 행정규화 } from '../../lib/sheet-normalize';
+import { 요청자확인 } from '../../lib/auth';
 
 export interface Data {
   id: string;
@@ -95,14 +93,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<any>
 ) {
-  const date = req.query.date as string;
-  const user = ((req.query.name as string) || '').trim();
-  const card = req.query.card as string;
-
-  if (!user) {
-    res.status(400).json({ message: 'name 이 필요합니다' });
-    return;
-  }
+  const who = 요청자확인(req, res);
+  if (!who) return;
 
   let all: Data[];
   try {
@@ -114,30 +106,16 @@ export default async function handler(
     return;
   }
 
-  const 내카드 = 내카드확정(all, user, card);
-  const 내내역 = all.filter((item) => isSameUser(item, user, 내카드));
-
-  // 취소 상쇄를 금액·시간 필터보다 먼저 해야 한다.
-  // 2만원 넘는 결제를 취소한 경우, 먼저 걸러버리면 짝을 못 찾아 취소가 붕 뜬다.
-  const 이번달 = 내내역.filter((item) =>
-    dayjs(item.date).isSame(dayjs(date), 'month')
-  );
-  const 리스트데이터 = 취소상쇄(이번달)
-    .filter(점심지원대상)
-    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-  const total = 리스트데이터.reduce(
-    (a, b) => a + (parseInt(String(b.fee), 10) || 0),
-    0
-  );
+  const 내카드 = 내카드확정(all, who.name, who.card);
+  const 내내역 = all.filter((item) => isSameUser(item, who.name, 내카드));
 
   res.status(200).json({
     message: '성공',
-    data: total,
-    length: 리스트데이터.length,
-    originData: 리스트데이터,
     // 재발급 감지까지 끝난 내 카드 목록. 클라이언트는 이걸 그대로 저장한다.
     cards: 내카드,
-    // 내 전체 내역(월 무관). 추천·통계·누락 감지가 지난달까지 훑어야 해서 함께 준다.
+    // 내 전체 내역(월 무관). 월별 집계는 클라이언트가 월별내역추리기로 만든다.
+    // 로컬 캐시로 첫 화면을 그리는 경로도 같은 함수를 쓰므로, 서버가 따로
+    // 계산해 내려주면 같은 로직이 두 벌이 된다.
     myData: 내내역,
     publicData: 익명화(all),
   });

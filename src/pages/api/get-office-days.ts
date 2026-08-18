@@ -1,5 +1,6 @@
 // 좌석 예약 시스템에서 이번 달 출근일을 가져온다(연차 제외).
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { 요청자확인 } from '../../lib/auth';
 
 const BASE = 'https://pickseat.purple.io/api/trpc';
 
@@ -48,15 +49,15 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData | { message: string }>
 ) {
-  const name = ((req.query.name as string) || '').trim();
+  // 이름만 알면 남의 출근일·연차가 나오던 엔드포인트다. 신원은 세션에서 받는다.
+  const who = 요청자확인(req, res);
+  if (!who) return;
+  const name = who.name;
+
   // 예전엔 이 값을 dayjs().format(date) 에 넣었다. '2026-08' 에는 치환할 토큰이
   // 없어서 우연히 그대로 통과했을 뿐, 알파벳이 섞이면 조용히 엉뚱한 달을 조회한다.
   const yearMonth = ((req.query.date as string) || '').trim();
 
-  if (!name) {
-    res.status(400).json({ message: 'name 이 필요합니다' });
-    return;
-  }
   if (!/^\d{4}-\d{2}$/.test(yearMonth)) {
     res.status(400).json({ message: "date 는 'YYYY-MM' 형식이어야 합니다" });
     return;

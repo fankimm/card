@@ -6,6 +6,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getData, 내카드확정 } from './get-total-fee';
 import { isMaskedNameMatch } from '../../lib/user-match';
+import { 세션발급, 쿠키만들기 } from '../../lib/session';
+
+// 검증을 통과하면 서명 쿠키를 심는다. 이후 데이터 API는 쿼리 파라미터 대신
+// 이 쿠키로 신원을 판단한다. SESSION_SECRET 이 없으면 발급하지 않는다.
+const 세션심기 = (res: NextApiResponse, name: string, cards: string[]) => {
+  const token = 세션발급(name, cards);
+  if (token) res.setHeader('Set-Cookie', 쿠키만들기(token));
+};
 
 export default async function handler(
   req: NextApiRequest,
@@ -34,6 +42,7 @@ export default async function handler(
     all = await getData();
   } catch {
     // 시트가 잠깐 죽었다고 로그인까지 막지는 않는다(기존 동작 유지).
+    세션심기(res, name, [card]);
     res.status(200).json({ ok: true, cards: [card], verified: false });
     return;
   }
@@ -51,5 +60,7 @@ export default async function handler(
     return;
   }
 
-  res.status(200).json({ ok: true, cards: 내카드확정(all, name, card), verified: true });
+  const cards = 내카드확정(all, name, card);
+  세션심기(res, name, cards);
+  res.status(200).json({ ok: true, cards, verified: true });
 }

@@ -542,6 +542,16 @@ export default function Home({ date, setDate }: HomeProps) {
 
   // 출근일을 받아 이 달의 지원 한도를 정한다. 한 달 최대 12일 × 12,000원.
   // 두 군데(최초 진입 / 로그인 이벤트)에서 똑같이 부르던 것을 하나로 모았다.
+  // 세션이 켜진 뒤(SESSION_SECRET 설정) 쿠키 없이 들어오면 데이터 API가 401을 준다.
+  // 그때는 조용히 실패하지 말고 로그인 화면으로 돌려보낸다.
+  const 세션끊김 = useCallback(() => {
+    try {
+      window.localStorage.removeItem('loginInfo');
+      window.localStorage.removeItem('cardInfo');
+    } catch {}
+    setHasSession(false);
+  }, []);
+
   const 출근일불러오기 = useCallback(
     (loginInfo: string) =>
       fetch(
@@ -549,8 +559,15 @@ export default function Home({ date, setDate }: HomeProps) {
           loginInfo
         )}&date=${dayjs(date).format('YYYY-MM')}`
       )
-        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((res) => {
+          if (res.status === 401) {
+            세션끊김();
+            return null;
+          }
+          return res.ok ? res.json() : Promise.reject(res);
+        })
         .then((data) => {
+          if (data === null) return;
           const 출근 = Array.isArray(data?.data) ? (data.data as string[]) : [];
           set출근일(출근);
           set월지원급액한도(12000 * Math.min(출근.length, 12));
@@ -561,7 +578,7 @@ export default function Home({ date, setDate }: HomeProps) {
           set출근일(undefined);
           set월지원급액한도(0);
         }),
-    [date]
+    [date, 세션끊김]
   );
 
   // 집계 제외 항목 관리 (Google Sheets 연동)
@@ -797,9 +814,15 @@ export default function Home({ date, setDate }: HomeProps) {
         login
       )}&card=${encodeURIComponent(loginCard || '')}&date=${date}`
     )
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          세션끊김();
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
-        if (!Array.isArray(data?.myData)) return;
+        if (!data || !Array.isArray(data?.myData)) return;
         setMyData(data.myData);
         setPublicData(data.publicData);
         // 카드를 재발급받아 뒷 4자리가 바뀌면 서버가 옛 카드를 찾아 cards에 담아 준다.
@@ -830,7 +853,7 @@ export default function Home({ date, setDate }: HomeProps) {
       .finally(() => {
         setLoading(false);
       });
-  }, [date]);
+  }, [date, 세션끊김]);
   // 설정을 열 때마다 저장된 카드 목록을 다시 읽는다(조회 중에 자동으로 늘어날 수 있어서)
   useEffect(() => {
     if (!isSettingsOpen) return;
@@ -847,18 +870,6 @@ export default function Home({ date, setDate }: HomeProps) {
     },
     [handleSearch]
   );
-  // 예전 캐시(:allData)에는 전원의 이름과 카드 뒷 4자리가 통째로 들어 있었다.
-  // 서버가 더는 안 내려주더라도 이미 기기에 저장된 건 남아 있으므로 여기서 지운다.
-  useEffect(() => {
-    try {
-      for (const key of Object.keys(window.localStorage)) {
-        if (key.startsWith('card-usages:') && key.endsWith(':allData')) {
-          window.localStorage.removeItem(key);
-        }
-      }
-    } catch {}
-  }, []);
-
   useEffect(() => {
     const loginInfo = window.localStorage.getItem('loginInfo');
     const cardInfo = window.localStorage.getItem('cardInfo');

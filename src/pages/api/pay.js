@@ -1,9 +1,20 @@
-// Next.js API Route for decrypting payslip
+// 급여명세서 복호화 API.
+//
+// 예전엔 Access-Control-Allow-Origin 이 '*' 라 아무 사이트에서나 부를 수 있었다.
+// 이제 PAY_ALLOWED_ORIGINS(콤마 구분)에 적은 곳만 허용하고, 비어 있으면
+// CORS 헤더를 아예 안 붙여 같은 출처에서만 쓰게 한다.
 export default async function handler(req, res) {
-  // CORS 설정
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  const 허용목록 = (process.env.PAY_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const origin = req.headers.origin;
+  if (origin && 허용목록.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
 
   // OPTIONS 요청 처리 (CORS preflight)
   if (req.method === 'OPTIONS') {
@@ -37,16 +48,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // 비밀번호 검증
-    const passwordCheck = Math.abs(password << password);
-    const expectedValue = 1610612736; // parseInt(unescape('\x31\x36\x31\x30\x36\x31\x32\x37\x33\x36'))
-
-    if (passwordCheck !== expectedValue) {
-      return res.status(401).json({
-        success: false,
-        error: '비밀번호가 일치하지 않습니다.',
-      });
-    }
+    // 예전엔 여기서 Math.abs(password << password) === 1610612736 으로 걸렀다.
+    // 6자리 100만 개 중 31,250개(정확히 1/32)가 통과하는 검사라 아무것도 막지
+    // 못했고, 복호화 알고리즘이 바로 아래에 그대로 있어 지킬 것도 없었다.
+    // 대신 복호화 결과가 실제로 명세서인지를 보고 판단한다(아래).
 
     // _viewData 값 추출
     const viewDataMatch = htmlContent.match(
@@ -74,12 +79,22 @@ export default async function handler(req, res) {
       decryptedHTML += String.fromCharCode(decryptedChar);
     }
 
+    // 비밀번호가 틀리면 글자 시프트 결과가 그냥 깨진 문자열이 된다.
+    // 명세서라면 반드시 있는 표식으로 성공 여부를 판단한다.
+    if (!/급여\s*명세서|<em>회사명<\/em>/.test(decryptedHTML)) {
+      return res.status(401).json({
+        success: false,
+        error: '비밀번호가 일치하지 않습니다.',
+      });
+    }
+
     // HTML 파싱
     const payslipData = parsePayslipHTML(decryptedHTML);
 
     // 보기 좋게 포맷팅된 텍스트 생성
+    // (예전엔 여기서 beautified 를 통째로 console.log 했다. 이름·사원코드·실지급액이
+    //  Vercel 로그에 그대로 남는다. 응답으로만 돌려준다.)
     const beautified = formatBeautifiedText(payslipData);
-    console.log('beautified', beautified);
     // 성공 응답
     return res.status(200).json({
       success: true,

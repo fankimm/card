@@ -12,7 +12,7 @@
 카드 결제 문자
    │  문자 전달 앱이 { test: "문자원문" } 을 POST
    ▼
-POST /api/hello ──── 파싱(lib/sms-parse) ──── Apps Script ──► 시트 (결제 내역 탭)
+POST /api/usages/ingest ─ 파싱(lib/sms-parse) ─ Apps Script ──► 시트 (결제 내역 탭)
    │                                              │
    │  결제 문자가 아니면 '무시'로 로그만            └──► 시트 (log 탭)
    ▼
@@ -26,7 +26,8 @@ GET /api/get-total-fee ──► 시트에서 전체를 받아 캐시(3분) → 
 
 | 경로 | 역할 |
 |---|---|
-| `src/pages/api/hello.ts` | **문자 수신 웹훅.** 이름과 달리 이게 가장 중요한 쓰기 경로다 |
+| `src/pages/api/usages/ingest.ts` | **문자 수신 웹훅.** 이 앱에서 유일한 쓰기 경로 |
+| `src/pages/api/hello.ts` | 위의 옛 주소. 전달 앱이 다 옮기면 삭제 (아래 참고) |
 | `src/pages/api/get-total-fee.ts` | 이용내역 조회. 시트 캐시도 여기 (`getData`) |
 | `src/pages/api/login.ts` | 이름+카드 대조, 세션 쿠키 발급 |
 | `src/pages/api/get-office-days.ts` | 좌석 시스템(pickseat)에서 출근일 |
@@ -49,7 +50,7 @@ GET /api/get-total-fee ──► 시트에서 전체를 받아 캐시(3분) → 
 |---|---|
 | `API_ENDPOINT` | 조회가 503. **필수** |
 | `LOG_ENDPOINT` | 문자 수신 로그를 시트에 안 남김 |
-| `INGEST_SECRET` | `/api/hello` 를 아무나 부를 수 있음 |
+| `INGEST_SECRET` | 문자 수신 웹훅을 아무나 부를 수 있음 |
 | `SESSION_SECRET` | 세션이 꺼지고 쿼리 파라미터로 신원 판단 (= 남의 데이터 조회 가능) |
 | `CRON_SECRET` | `/api/pick-seat` 를 아무나 부를 수 있음 |
 | `PICKSEAT_*` | `/api/pick-seat` 가 500 |
@@ -71,6 +72,24 @@ yarn smoke       # 배포된 앱을 헤드리스 크롬으로 훑는다 (인자�
 ```
 
 `yarn smoke http://localhost:3000` 처럼 로컬에도 쓸 수 있다. 배포 후에는 항상 돌려볼 것.
+
+## 문자 수신 주소 옮기기 (진행 중)
+
+옛 주소 `/api/hello` 는 create-next-app 기본 파일에 웹훅을 얹은 게 굳은 것이다.
+새 주소는 `/api/usages/ingest`. 옛 주소는 별칭으로 살아 있어 지금 당장 안 바꿔도 된다.
+
+`INGEST_SECRET` 을 켜려면 어차피 URL에 `?key=` 를 붙여야 하니 **한 번에 같이** 바꾸면 된다.
+
+1. 전달 앱 세 대의 URL을 아래로 교체
+   ```
+   https://card-usages.vercel.app/api/usages/ingest?key=<INGEST_SECRET>
+   ```
+2. 세 대가 다 옮겨졌는지는 **시트 log 탭 비고**로 확인한다.
+   옛 주소로 들어온 요청에는 `(구주소)` 가 붙는다. 며칠 지켜봐서 안 보이면 완료.
+3. `src/pages/api/hello.ts` 삭제.
+
+`INGEST_SECRET` 은 전달 앱 URL을 먼저 고친 **뒤에** Vercel에 넣을 것. 순서가 반대면
+그 사이 들어온 문자가 401로 튕긴다.
 
 ## 함정 (겪은 것들)
 

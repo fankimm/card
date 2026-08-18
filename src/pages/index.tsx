@@ -540,6 +540,30 @@ export default function Home({ date, setDate }: HomeProps) {
   const [aiInsightKey, setAiInsightKey] = useState<string | null>(null);
   const router = useRouter();
 
+  // 출근일을 받아 이 달의 지원 한도를 정한다. 한 달 최대 12일 × 12,000원.
+  // 두 군데(최초 진입 / 로그인 이벤트)에서 똑같이 부르던 것을 하나로 모았다.
+  const 출근일불러오기 = useCallback(
+    (loginInfo: string) =>
+      fetch(
+        `/api/get-office-days?name=${encodeURIComponent(
+          loginInfo
+        )}&date=${dayjs(date).format('YYYY-MM')}`
+      )
+        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((data) => {
+          const 출근 = Array.isArray(data?.data) ? (data.data as string[]) : [];
+          set출근일(출근);
+          set월지원급액한도(12000 * Math.min(출근.length, 12));
+        })
+        .catch((err) => {
+          // 좌석 시스템이 죽어도 결제 내역은 보여야 한다. 한도만 못 구할 뿐이다.
+          console.log('출근일 조회 실패', err);
+          set출근일(undefined);
+          set월지원급액한도(0);
+        }),
+    [date]
+  );
+
   // 집계 제외 항목 관리 (Google Sheets 연동)
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const fetchExcludedItems = useCallback(() => {
@@ -848,28 +872,7 @@ export default function Home({ date, setDate }: HomeProps) {
       return;
     }
     if (loginInfo) {
-      fetch(
-        `/api/get-office-days?name=${loginInfo}&date=${dayjs(date).format(
-          'YYYY-MM'
-        )}`
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          console.log('오리진 데이터', data);
-          set출근일(data.data);
-          let 월지급액한도계산;
-          if (data.data.length >= 12) {
-            console.log('출근일 12일 이상');
-            월지급액한도계산 = 12000 * 12;
-          } else {
-            console.log('출근일 12일 미만');
-            console.log('data', data);
-            월지급액한도계산 = 12000 * data.data.length;
-          }
-
-          set월지원급액한도(월지급액한도계산);
-        });
-
+      출근일불러오기(loginInfo);
       handleSearch();
       fetchExcludedItems();
       setHasSession(true);
@@ -878,7 +881,7 @@ export default function Home({ date, setDate }: HomeProps) {
     } else {
       setHasSession(false);
     }
-  }, [date, handleSearch, fetchExcludedItems, scrollToTopFast]);
+  }, [date, handleSearch, fetchExcludedItems, scrollToTopFast, 출근일불러오기]);
   useEffect(() => {
     if (!출근일) return;
     const 지원가능일수 = Math.min(출근일.length, 12);
@@ -1120,22 +1123,10 @@ export default function Home({ date, setDate }: HomeProps) {
       const loginInfo = window.localStorage.getItem('loginInfo');
       if (!loginInfo) return;
       fetchExcludedItems();
-      fetch(
-        `/api/get-office-days?name=${loginInfo}&date=${dayjs(date).format(
-          'YYYY-MM'
-        )}`
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          set출근일(data.data);
-          const 월지급액한도계산 =
-            data.data.length >= 12 ? 12000 * 12 : 12000 * data.data.length;
-          set월지원급액한도(월지급액한도계산);
-        })
-        .finally(() => {
-          handleSearch();
-          setHasSession(true);
-        });
+      출근일불러오기(loginInfo).finally(() => {
+        handleSearch();
+        setHasSession(true);
+      });
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('login', onLogin);
@@ -1145,7 +1136,7 @@ export default function Home({ date, setDate }: HomeProps) {
         window.removeEventListener('login', onLogin);
       }
     };
-  }, [date, handleSearch, fetchExcludedItems]);
+  }, [date, handleSearch, fetchExcludedItems, 출근일불러오기]);
   if (hasSession) {
     return (
       <div className="min-h-screen">
@@ -1329,7 +1320,9 @@ export default function Home({ date, setDate }: HomeProps) {
                   <div className="text-4xl font-semibold mb-4">
                     {`${(adjustedData.totalLength === 0
                       ? 0
-                      : adjustedData.total / adjustedData.totalLength
+                      : Math.round(
+                          adjustedData.total / adjustedData.totalLength
+                        )
                     ).toLocaleString('ko-KR')}원`}
                   </div>
                 )}

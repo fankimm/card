@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 import { isSameUser, 재발급카드찾기, 카드목록파싱 } from '../../lib/user-match';
 import { 취소상쇄, 점심지원대상 } from '../../lib/usage-filter';
+import { 행정규화 } from '../../lib/sheet-normalize';
 
 export interface Data {
   id: string;
@@ -43,46 +44,6 @@ declare global {
 // 3분 지나면 다시 받아온다.
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
-// 시트가 날짜·시간 칸을 Date 원문("Wed Aug 05 2026 00:00:00 GMT+0900")으로 돌려줄 때가 있다.
-// Apps Script 쪽에 포맷 분기(cellText)가 있지만 배포 버전이 그보다 오래되면 그냥 새어 나온다.
-// 그대로 두면 시각 파싱이 NaN이 되고 날짜 문자열 정렬이 뒤집혀서
-// (Wed > Thu) 재발급 카드 탐지와 누락일 판정이 조용히 오답을 낸다. 여기서 되돌린다.
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
-const HMS = /^\d{1,2}:\d{2}(:\d{2})?$/;
-
-const 날짜정규화 = (v: unknown) => {
-  const s = String(v ?? '').trim();
-  if (!s || YMD.test(s)) return s;
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return s;
-  // 자정 + KST 오프셋이라 UTC로 찍으면 하루 밀린다. 반드시 서울 기준으로.
-  const p = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-    .formatToParts(d)
-    .reduce<Record<string, string>>((a, x) => ((a[x.type] = x.value), a), {});
-  return `${p.year}-${p.month}-${p.day}`;
-};
-
-// 시간 칸은 Date로 파싱하면 1899년 기준 지방시(+08:27) 때문에 시각이 27분 밀린다.
-// 문자열에 적힌 벽시계 시각을 그대로 뽑아 쓴다.
-const 시각정규화 = (v: unknown) => {
-  const s = String(v ?? '').trim();
-  if (!s || HMS.test(s)) return s;
-  const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  return m ? `${m[1].padStart(2, '0')}:${m[2]}:${m[3] ?? '00'}` : s;
-};
-
-const 정규화 = (rows: Data[]): Data[] =>
-  rows.map((r) => ({
-    ...r,
-    date: 날짜정규화(r.date),
-    time: 시각정규화(r.time),
-  }));
-
 const 익명화 = (items: Data[]): PublicUsage[] =>
   items.map(({ confirmType, date, time, fee, place }) => ({
     confirmType,
@@ -108,7 +69,7 @@ export const getData = async (): Promise<Data[]> => {
     if (!Array.isArray(body?.data)) {
       throw new Error('시트 응답 형식이 예상과 다릅니다');
     }
-    const rows = 정규화(body.data);
+    const rows = 행정규화(body.data);
     global.cachedData = rows;
     global.cachedAt = Date.now();
     return rows;

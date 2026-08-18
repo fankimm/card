@@ -1,5 +1,7 @@
-import dayjs from 'dayjs';
+// 좌석 예약 시스템에서 이번 달 출근일을 가져온다(연차 제외).
 import type { NextApiRequest, NextApiResponse } from 'next';
+
+const BASE = 'https://pickseat.purple.io/api/trpc';
 
 type ResponseData = {
   message: string;
@@ -7,82 +9,77 @@ type ResponseData = {
   data: string[];
 };
 
+const trpc = async (path: string, input: unknown) => {
+  const url = `${BASE}/${path}?batch=1&input=${encodeURIComponent(
+    JSON.stringify(input)
+  )}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`좌석 시스템 응답 ${res.status}`);
+  return res.json();
+};
+
 const getId = async (name: string) => {
-  const input = {
-    0: { name },
-  };
-
-  const url = `https://pickseat.purple.io/api/trpc/isUser?batch=1&input=${encodeURIComponent(
-    JSON.stringify(input)
-  )}`;
-
-  const idResponse = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      // 필요 시 인증 쿠키를 여기에 추가할 수 있음
-      // "Cookie": "__Secure-next-auth.session-token=YOUR_TOKEN_HERE"
-    },
-  });
-  const idResponseJson = await idResponse.json();
-  const id = idResponseJson[0].result.data[0].id;
-  return id;
-};
-const 출근정보얻기 = async (id: string, date: string) => {
-  const input = {
-    1: { yearMonth: dayjs().format(date) },
-    2: {
-      user: {
-        id: { _eq: id },
-      },
-      yearMonth: { _eq: dayjs().format(date) },
-    },
-  };
-
-  const url = `https://pickseat.purple.io/api/trpc/scheduleForMain,dashboard,getScheduleMonthlyByUser?batch=1&input=${encodeURIComponent(
-    JSON.stringify(input)
-  )}`;
-
-  const 출근정보리스폰스 = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      // 쿠키가 필요한 경우 아래 주석을 해제하거나 credentials: 'include' 사용
-      // "Cookie": "__Secure-next-auth.session-token=your_token_here"
-    },
-    // credentials: "include"  // ← 브라우저에서 세션 쿠키 자동 포함시킴
-  });
-  const 출근정보JSON = await 출근정보리스폰스.json();
-  console.log(출근정보JSON);
-  const result = {
-    officeDays: 출근정보JSON[2].result.data[0].officeDates,
-    offDays: 출근정보JSON[2].result.data[0].dayOffDates,
-  };
-  return result;
+  const json = await trpc('isUser', { 0: { name } });
+  const id = json?.[0]?.result?.data?.[0]?.id;
+  if (!id) throw new Error(`좌석 시스템에서 '${name}' 을 찾지 못했습니다`);
+  return id as string;
 };
 
-interface 출근정보타입 {
-  officeDays: string[];
-  offDays: string[];
-}
+const 출근정보얻기 = async (id: string, yearMonth: string) => {
+  const json = await trpc(
+    'scheduleForMain,dashboard,getScheduleMonthlyByUser',
+    {
+      1: { yearMonth },
+      2: { user: { id: { _eq: id } }, yearMonth: { _eq: yearMonth } },
+    }
+  );
+  const row = json?.[2]?.result?.data?.[0];
+  if (!row) throw new Error('출근일 데이터를 받지 못했습니다');
+  return {
+    officeDays: (row.officeDates || []) as string[],
+    offDays: (row.dayOffDates || []) as string[],
+  };
+};
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ResponseData>
+  res: NextApiResponse<ResponseData | { message: string }>
 ) {
-  const name = req.query.name as string;
-  const date = req.query.date as string;
-  const id = await getId(name);
-  console.log('id', id);
-  const 출근정보: 출근정보타입 = await 출근정보얻기(id, date);
-  const 출근일 = 출근정보.officeDays
-    .filter((i) => !출근정보.offDays.includes(i))
-    .sort((a, b) => a.localeCompare(b));
-  console.log('officeDays', 출근정보);
+  const name = ((req.query.name as string) || '').trim();
+  // 예전엔 이 값을 dayjs().format(date) 에 넣었다. '2026-08' 에는 치환할 토큰이
+  // 없어서 우연히 그대로 통과했을 뿐, 알파벳이 섞이면 조용히 엉뚱한 달을 조회한다.
+  const yearMonth = ((req.query.date as string) || '').trim();
 
-  res.status(200).json({
-    message: 'SUCCESS',
-    timestamp: Date.now(),
-    data: 출근일,
-  });
+  if (!name) {
+    res.status(400).json({ message: 'name 이 필요합니다' });
+    return;
+  }
+  if (!/^\d{4}-\d{2}$/.test(yearMonth)) {
+    res.status(400).json({ message: "date 는 'YYYY-MM' 형식이어야 합니다" });
+    return;
+  }
+
+  try {
+    const id = await getId(name);
+    const 출근정보 = await 출근정보얻기(id, yearMonth);
+    const 출근일 = 출근정보.officeDays
+      .filter((i) => !출근정보.offDays.includes(i))
+      .sort((a, b) => a.localeCompare(b));
+
+    res.status(200).json({
+      message: 'SUCCESS',
+      timestamp: Date.now(),
+      data: 출근일,
+    });
+  } catch (err) {
+    // 예전엔 여기서 그냥 던져서 Next가 HTML 500을 돌려줬고,
+    // 클라이언트의 .then(res => res.json()) 이 파싱하다 터졌다(catch도 없었다).
+    console.log('출근일 조회 실패', err);
+    res
+      .status(502)
+      .json({ message: err instanceof Error ? err.message : '조회 실패' });
+  }
 }

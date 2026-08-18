@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { 초로, 코어타임 } from '../../lib/usage-filter';
+import { parseSms } from '../../lib/sms-parse';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -82,37 +83,24 @@ async function 처리(
   res: NextApiResponse<any>,
   원문: string
 ) {
-  const testMessage = [
-    '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n16,750원 일시불\r\n오늘은닭\r\n잔여한도: 476,000원',
-    '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n07/23 12:38\r\n16,750원 일시불\r\n오늘은닭',
-  ];
-  const testMode = '잔여한도포함'; // 잔여한도포함, 잔여한도미포함
   const isDev = process.env.NODE_ENV === 'development';
-  const mock = {
-    test: testMode === '잔여한도포함' ? testMessage[0] : testMessage[1],
-  };
-  const mes = isDev ? mock : req.body;
+  const mock =
+    '[Web발신]\n[MY COMPANY] 승인\r\n8713 김지환님\r\n16,750원 일시불\r\n오늘은닭\r\n잔여한도: 476,000원';
+  const 본문 = isDev ? mock : req.body?.test;
   console.log('리퀘스트', req.body);
-  const parseWithLine: string[] = mes.test
-    .replaceAll('\r', '')
-    .replaceAll('님', '')
-    .replaceAll(',', '')
-    .split('\n');
-  const 잔여한도포함 = parseWithLine.some((line) => line.includes('잔여한도'));
 
-  const confirmType = parseWithLine[1].split(' ')[2];
-  const cardNumber = parseWithLine[2].split(' ')[0];
-  const user = parseWithLine[2].split(' ')[1];
-  const date = 잔여한도포함
-    ? dayjs().tz('Asia/Seoul').format('MM/DD')
-    : parseWithLine[3].split(' ')[0];
-  const time = 잔여한도포함
-    ? dayjs().tz('Asia/Seoul').format('HH:mm:ss')
-    : parseWithLine[3].split(' ')[1];
-  const fee = 잔여한도포함
-    ? parseWithLine[3].split(' ')[0].replaceAll('원', '')
-    : parseWithLine[4].split(' ')[0].replaceAll('원', '');
-  const place = 잔여한도포함 ? parseWithLine[4] : parseWithLine[5];
+  const 지금 = dayjs().tz('Asia/Seoul');
+  const parsed = parseSms(본문, 지금);
+
+  // 결제 문자가 아닌 것(광고·결제예정 안내·카드 갱신 안내)은 정상 상황이다.
+  // 예전엔 여기서 split이 터져 '실패'로 쌓였고, 진짜 실패가 그 안에 묻혔다.
+  if (parsed.kind === '무시') {
+    await 로그남기기({ 결과: '무시', 원문, 비고: parsed.reason });
+    res.status(200).json({ message: parsed.reason });
+    return;
+  }
+
+  const { confirmType, cardNumber, user, date, time, fee, place } = parsed.data;
 
   // 조회 필터와 같은 기준을 쓴다. 예전엔 여기만 문자열 비교로 15시 컷이었는데,
   // 그러면 15~16시 결제는 시트에 아예 안 들어가면서 조회상으로는 지원 대상이라
@@ -123,15 +111,14 @@ async function 처리(
     return;
   }
 
-  const 올해 = dayjs().format('YYYY');
   const param = {
-    createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+    createdAt: 지금.format('YYYY-MM-DD HH:mm:ss'),
     confirmType,
     cardNumber,
     user,
-    date: dayjs(`${올해}/${date}`).format('YYYY-MM-DD'),
-    time: dayjs(`${올해}/${date} ${time}`).format('HH:mm:ss'),
-    fee: parseInt(fee),
+    date,
+    time,
+    fee,
     place,
   };
 

@@ -117,3 +117,69 @@ describe('parseSms — 연말 경계', () => {
     expect(r.data.date).toBe('2026-12-31');
   });
 });
+
+// 2026-09-16 부터 온 세 번째 양식. 헤더에 카드번호가 올라가고 이름 줄에서 빠졌다.
+// 바뀐 날 점심 문자 4건이 전부 "결제 문자가 아닙니다 (MY COMPANY 2613  승인)" 로 무시됐다.
+describe('parseSms — 2026-09 신형 (헤더에 카드번호)', () => {
+  const 신형승인 =
+    '[Web발신]\nMY COMPANY 2613  승인\r\n한*님\r\n09/16 11:29\r\n14,000원 일시불\r\n이관복명장냉면선릉점';
+  const 신형기준 = dayjs('2026-09-16T11:29:21');
+
+  it('헤더의 카드번호와 이름 줄을 읽는다', () => {
+    const r = parseSms(신형승인, 신형기준);
+    expect(r.kind).toBe('결제');
+    if (r.kind !== '결제') return;
+    expect(r.data).toEqual({
+      confirmType: '승인',
+      cardNumber: '2613',
+      user: '한*',
+      date: '2026-09-16',
+      time: '11:29:00',
+      fee: 14000,
+      place: '이관복명장냉면선릉점',
+    });
+  });
+
+  it('세 글자 이름도 그대로', () => {
+    const r = parseSms(
+      '[Web발신]\nMY COMPANY 9427  승인\r\n김*환님\r\n09/16 11:29\r\n14,000원 일시불\r\n이관복명장냉면선릉점',
+      신형기준
+    );
+    expect(r.kind).toBe('결제');
+    if (r.kind !== '결제') return;
+    expect(r.data).toMatchObject({ cardNumber: '9427', user: '김*환' });
+  });
+
+  it('취소도 읽는다', () => {
+    const r = parseSms(신형승인.replace('  승인', '  취소'), 신형기준);
+    expect(r.kind).toBe('결제');
+    if (r.kind !== '결제') return;
+    expect(r.data.confirmType).toBe('취소');
+    expect(r.data.cardNumber).toBe('2613');
+  });
+
+  it('신형 해외승인도 원화 금액이 없으면 무시', () => {
+    const r = parseSms(
+      '[Web발신]\nMY COMPANY 6522  해외승인\r\n홍*수님\r\n09/16 15:06\r\nUSD 20.00\r\nOPENAI*CHATGPTSUBSCR',
+      신형기준
+    );
+    expect(r.kind).toBe('무시');
+    if (r.kind !== '무시') return;
+    expect(r.reason).toContain('원화');
+    expect(r.reason).toContain('USD');
+  });
+
+  it('구형·신형 어느 쪽이든 결제가 아닌 안내문은 여전히 무시', () => {
+    expect(
+      parseSms('[Web발신]\nMY COMPANY 9427 결제 예정 금액 안내\r\n김*환님\r\n\r\n- 결제일 : 09/20\r\n- 금액', 신형기준)
+        .kind
+    ).toBe('무시');
+  });
+
+  it('시가 한 자리인 시각도 HH:mm:ss 로 맞춘다', () => {
+    const r = parseSms(신형승인.replace('09/16 11:29', '09/16 9:21'), 신형기준);
+    expect(r.kind).toBe('결제');
+    if (r.kind !== '결제') return;
+    expect(r.data.time).toBe('09:21:00');
+  });
+});

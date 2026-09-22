@@ -38,6 +38,7 @@ GET /api/get-total-fee ──► 시트에서 전체를 받아 캐시(3분) → 
 | `src/lib/user-match.ts` | 마스킹 이름 매칭, 재발급 카드 탐지 |
 | `src/lib/sms-parse.ts` | 결제 문자 파싱 |
 | `src/lib/sheet-normalize.ts` | 시트가 흘리는 Date 원문 되돌리기 |
+| `src/lib/sheet-csv.ts` | 시트를 CSV로 바로 읽기 (빠른 조회 경로) |
 | `src/lib/session.ts`, `src/lib/auth.ts` | 서명 쿠키 세션 |
 | `src/hooks/useSession.ts` | 클라이언트 로그인 상태 |
 | `apps-script/Code.gs` | 시트에 붙은 Apps Script 사본 |
@@ -49,6 +50,7 @@ GET /api/get-total-fee ──► 시트에서 전체를 받아 캐시(3분) → 
 | 변수 | 없으면 |
 |---|---|
 | `API_ENDPOINT` | 조회가 503. **필수** |
+| `SHEET_CSV_URL` | 조회가 Apps Script를 거쳐 느림(캐시 미스 시 7초대 → 있으면 1초 안팎) |
 | `LOG_ENDPOINT` | 문자 수신 로그를 시트에 안 남김 |
 | `INGEST_SECRET` | 문자 수신 웹훅을 아무나 부를 수 있음 |
 | `SESSION_SECRET` | 세션이 꺼지고 쿼리 파라미터로 신원 판단 (= 남의 데이터 조회 가능) |

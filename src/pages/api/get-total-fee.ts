@@ -7,6 +7,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { isSameUser, 재발급카드찾기, 카드목록파싱 } from '../../lib/user-match';
 import { 행정규화 } from '../../lib/sheet-normalize';
+import { csv행만들기 } from '../../lib/sheet-csv';
 import { 요청자확인 } from '../../lib/auth';
 
 export interface Data {
@@ -51,6 +52,39 @@ const 익명화 = (items: Data[]): PublicUsage[] =>
     place,
   }));
 
+const CSV_필수열 = ['id', 'confirmType', 'cardNumber', 'user', 'date', 'time', 'fee'];
+const CSV_제한시간_MS = 5000;
+
+// Apps Script 조회는 7초대라, SHEET_CSV_URL 이 있으면 구글이 직접 내주는 CSV를 먼저 읽는다
+// (1초 안팎). 시트 공유가 꺼지거나 구글이 느리면 예전 경로로 물러난다.
+const 시트읽기 = async (): Promise<Data[]> => {
+  const csvUrl = process.env.SHEET_CSV_URL;
+  if (csvUrl) {
+    try {
+      const response = await fetch(csvUrl, {
+        signal: AbortSignal.timeout(CSV_제한시간_MS),
+      });
+      if (!response.ok) throw new Error(`CSV 응답 ${response.status}`);
+      return csv행만들기<Data>(await response.text(), CSV_필수열);
+    } catch (err) {
+      console.log(
+        'CSV 조회 실패, Apps Script로 다시 받습니다:',
+        err instanceof Error ? err.message : String(err)
+      );
+    }
+  }
+
+  const endpoint = process.env.API_ENDPOINT;
+  if (!endpoint) throw new Error('API_ENDPOINT 가 설정되지 않았습니다');
+  const response = await fetch(endpoint);
+  if (!response.ok) throw new Error(`시트 응답 ${response.status}`);
+  const body = (await response.json()) as { data?: Data[] };
+  if (!Array.isArray(body?.data)) {
+    throw new Error('시트 응답 형식이 예상과 다릅니다');
+  }
+  return body.data;
+};
+
 // 시트에서 전체 내역을 받아 캐시한다.
 // 실패를 조용히 삼키면 화면에 "0원"이 떠서 장애가 정상처럼 보인다. 그래서
 // 만료된 캐시라도 있으면 그걸 쓰고(금액이 틀리지는 않는다), 그것마저 없으면 던진다.
@@ -59,15 +93,7 @@ export const getData = async (): Promise<Data[]> => {
   if (global.cachedData && !만료) return global.cachedData;
 
   try {
-    const endpoint = process.env.API_ENDPOINT;
-    if (!endpoint) throw new Error('API_ENDPOINT 가 설정되지 않았습니다');
-    const response = await fetch(endpoint);
-    if (!response.ok) throw new Error(`시트 응답 ${response.status}`);
-    const body = (await response.json()) as { data?: Data[] };
-    if (!Array.isArray(body?.data)) {
-      throw new Error('시트 응답 형식이 예상과 다릅니다');
-    }
-    const rows = 행정규화(body.data);
+    const rows = 행정규화(await 시트읽기());
     global.cachedData = rows;
     global.cachedAt = Date.now();
     return rows;

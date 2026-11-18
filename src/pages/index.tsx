@@ -804,12 +804,29 @@ export default function Home({ date, setDate }: HomeProps) {
                 }
               }}
             >
-              <div className="subText text-2xl font-light">총 사용금액</div>
+              {/* 이번 달에 제일 궁금한 건 "하루에 얼마 쓸 수 있나" 다. 맨 아래 있던 걸 맨 위로 올렸다.
+                  지난 달·다음 달은 쓸 수 있는 금액이 의미 없으니 총 사용금액을 그대로 둔다. */}
+              <div className="subText text-2xl font-light">
+                {isCurrentMonth ? '일평균 사용 가능 금액' : '총 사용금액'}
+              </div>
               {showSkeleton ? (
                 <div className="mt-4 flex flex-col gap-2">
                   <div className="skeleton h-8 w-40" />
                   <div className="skeleton h-3 w-24" />
                 </div>
+              ) : isCurrentMonth ? (
+                <>
+                  <div className="text-5xl font-bold mb-2">
+                    {dailyBudget === null
+                      ? '—'
+                      : `${dailyBudget.toLocaleString('ko-KR')}원`}
+                  </div>
+                  <div className="subText text-sm mb-2">
+                    {dailyBudget === null
+                      ? `남은 금액 ${remainingAmount.toLocaleString('ko-KR')}원 · 남은 ${남은일수 ?? '-'}일`
+                      : `남은 ${remainingAmount.toLocaleString('ko-KR')}원 ÷ ${남은일수}일`}
+                  </div>
+                </>
               ) : (
                 <div className="text-4xl font-semibold mb-4">{`${adjustedData.total.toLocaleString(
                   'ko-KR'
@@ -819,35 +836,6 @@ export default function Home({ date, setDate }: HomeProps) {
           )}
           {showHome && (
             <div className="surface w-full max-w-2xl p-6 rounded-2xl flex flex-col gap-6 anim-slide-up">
-              <div>
-                <div className="subText text-2xl font-light">총 사용건수</div>
-                {showSkeleton ? (
-                  <div className="skeleton h-6 w-24 mt-2" />
-                ) : (
-                  <div className="text-4xl font-semibold mb-4">
-                    {adjustedData.totalLength}건
-                  </div>
-                )}
-              </div>
-              <div className="divider" />
-              <div>
-                <div className="subText text-2xl font-light">
-                  건당 평균 금액
-                </div>
-                {showSkeleton ? (
-                  <div className="skeleton h-6 w-36 mt-2" />
-                ) : (
-                  <div className="text-4xl font-semibold mb-4">
-                    {`${(adjustedData.totalLength === 0
-                      ? 0
-                      : Math.round(
-                          adjustedData.total / adjustedData.totalLength
-                        )
-                    ).toLocaleString('ko-KR')}원`}
-                  </div>
-                )}
-              </div>
-              <div className="divider" />
               <div>
                 <div className="subText text-2xl font-light">남은 금액</div>
                 {showSkeleton ? (
@@ -916,20 +904,38 @@ export default function Home({ date, setDate }: HomeProps) {
                 )}
               </div>
               <div className="divider" />
-              <div>
-                <div className="subText text-2xl font-light">
-                  일평균 사용 가능 금액
-                </div>
-                {showSkeleton ? (
-                  <div className="skeleton h-6 w-44 mt-2" />
-                ) : (
-                  <div className="text-4xl font-semibold mb-4">
-                    {dailyBudget === null
-                      ? '—'
-                      : `${dailyBudget.toLocaleString('ko-KR')}원`}
+              {/* 쓴 내역 요약은 참고용이라 작게 한 줄로 모았다. */}
+              {showSkeleton ? (
+                <div className="skeleton h-6 w-full" />
+              ) : (
+                <div className="flex justify-around gap-2">
+                  {isCurrentMonth && (
+                    <div>
+                      <div className="subText text-xs">총 사용금액</div>
+                      <div className="text-base font-medium">
+                        {`${adjustedData.total.toLocaleString('ko-KR')}원`}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="subText text-xs">총 사용건수</div>
+                    <div className="text-base font-medium">
+                      {adjustedData.totalLength}건
+                    </div>
                   </div>
-                )}
-              </div>
+                  <div>
+                    <div className="subText text-xs">건당 평균 금액</div>
+                    <div className="text-base font-medium">
+                      {`${(adjustedData.totalLength === 0
+                        ? 0
+                        : Math.round(
+                            adjustedData.total / adjustedData.totalLength
+                          )
+                      ).toLocaleString('ko-KR')}원`}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {showHome && (

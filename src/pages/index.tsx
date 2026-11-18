@@ -418,6 +418,7 @@ export default function Home({ date, setDate }: HomeProps) {
     if (!출근일) return;
     const 지원가능일수 = Math.min(출근일.length, 12);
     const 남은지원일수 = Math.max(0, 지원가능일수 - adjustedData.usedDays);
+    set남은일수(남은지원일수);
 
     // 지원 불가 출근일 계산 (현재 월만)
     const 오늘 = dayjs().format('YYYY-MM-DD');
@@ -428,20 +429,12 @@ export default function Home({ date, setDate }: HomeProps) {
       .filter((i: string) => 오늘 <= i)
       .filter((i: string) => !(오늘먹음 && i === 오늘))
       .sort();
-    // 이번 달은 실제로 밥 먹을 날(오늘 이후 출근일)을 넘겨 세지 않는다.
-    // 지난 출근일에 안 쓴 몫까지 "남은 8일" 로 나와, 출근이 5일 남았는데 헷갈렸다.
-    // 금액은 그대로 남으므로 일평균은 남은 금액 ÷ 이 일수로 올라간다.
-    set남은일수(
-      dayjs(date).isSame(dayjs(), 'month')
-        ? Math.min(남은지원일수, 남은출근일목록.length)
-        : 남은지원일수
-    );
     if (남은출근일목록.length > 남은지원일수) {
       set미지원출근일(남은출근일목록.slice(남은지원일수));
     } else {
       set미지원출근일([]);
     }
-  }, [originData, 출근일, adjustedData.usedDays, excludedIds, date]);
+  }, [originData, 출근일, adjustedData.usedDays, excludedIds]);
 
   // 출근했는데 결제가 하나도 없는 지난 날 = 카드 문자가 안 들어왔을 수 있다.
   // 실제로 4/06·6/30·7/01 결제가 이렇게 통째로 빠져 예산 초과를 뒤늦게 알았다.
